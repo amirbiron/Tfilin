@@ -49,9 +49,11 @@ def index():
     """Root endpoint"""
     return jsonify({"service": "Tefillin Bot", "version": "2.0.0", "status": "running", "health_check": "/health"})
 
+
 @app.route("/favicon.ico")
 def favicon():
     return ("", 204)
+
 
 @app.route("/camera")
 def camera_page():
@@ -144,11 +146,13 @@ def camera_page():
 """
     return html, 200, {"Content-Type": "text/html; charset=utf-8"}
 
+
 @app.route("/upload_photo", methods=["POST"])
 def upload_photo():
     """Receive uploaded photo and forward to Telegram bot chat_id"""
     try:
         from main_updated import TefillinBot  # local import
+
         chat_id = request.form.get("chat_id")
         file = request.files.get("photo")
         if not file:
@@ -209,7 +213,9 @@ def run_telegram_bot():
             bot_status["last_update"] = datetime.now().isoformat()
 
             # Standby (not leader), unless lock disabled
-            if ("Not leader" in str(e) or "leader lock" in str(e)) and os.environ.get("DISABLE_LEADER_LOCK", "0").lower() not in ("1","true","yes"):
+            if ("Not leader" in str(e) or "leader lock" in str(e)) and os.environ.get(
+                "DISABLE_LEADER_LOCK", "0"
+            ).lower() not in ("1", "true", "yes"):
                 logger.info("Not leader. Standing by and retrying to acquire leader lock later...")
                 time.sleep(15)
                 continue

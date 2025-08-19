@@ -45,10 +45,7 @@ class TefillinBot:
         self.lock_ttl_seconds = int(os.getenv("LEADER_LOCK_TTL", "60"))
         # אפשרות לעקוף נעילה כדי לשחזר במהירות תפקוד
         # הוסף ב-Render: DISABLE_LEADER_LOCK=1 כדי לנטרל זמנית
-        self.leader_lock_enabled = (
-            os.getenv("DISABLE_LEADER_LOCK", "0").lower()
-            not in ("1", "true", "yes")
-        )
+        self.leader_lock_enabled = os.getenv("DISABLE_LEADER_LOCK", "0").lower() not in ("1", "true", "yes")
         self._lock_refresh_task = None
 
         # יצירת אפליקציית בוט
@@ -150,14 +147,10 @@ class TefillinBot:
         if greeting is not None:
             current_time = (user or {}).get("daily_time", "07:30")
             streak = (user or {}).get("streak", 0)
-            header = (
-                f"שלום שוב {greeting}! 👋\n\n"
-                f"🕐 שעה יומית: {current_time}\n"
-                f"🔥 רצף: {streak} ימים\n\n"
-            )
+            header = f"שלום שוב {greeting}! 👋\n\n" f"🕐 שעה יומית: {current_time}\n" f"🔥 רצף: {streak} ימים\n\n"
 
         # ודא שהטקסט לא ריק כדי לא לשבור שליחת הודעה
-        text_for_reply_keyboard = header if header.strip() else "\u00A0"
+        text_for_reply_keyboard = header if header.strip() else "\u00a0"
         await message.reply_text(text_for_reply_keyboard, reply_markup=reply_keyboard)
         await message.reply_text("תפריט פעולות:", reply_markup=inline_keyboard)
 
@@ -332,8 +325,7 @@ class TefillinBot:
 
     async def handle_show_shema(self, query):
         """הצגת נוסח קריאת שמע"""
-        shema_text = (
-            """📖 קריאת שמע
+        shema_text = """📖 קריאת שמע
 
 **פרשה ראשונה:**
 שְׁמַע יִשְׂרָאֵל, ה' אֱלֹהֵינוּ, ה' אֶחָד.
@@ -361,7 +353,6 @@ class TefillinBot:
 כִּימֵי הַשָּׁמַיִם עַל הָאָרֶץ.
 
 🙏 יהי רצון שתהיה קריאתך מקובלת לפני הקב"ה"""
-        )
 
         keyboard = [[InlineKeyboardButton("⬅️ חזור", callback_data="back_to_menu")]]
         await query.edit_message_text(shema_text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
@@ -371,10 +362,7 @@ class TefillinBot:
         base_url = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:10000"
         camera_url = f"{base_url.rstrip('/')}/camera?chat_id={query.message.chat_id}"
 
-        text = (
-            "📸 צילום עם תפילין\n\n"
-            "לחץ על הכפתור כדי לפתוח את המצלמה בתוך Telegram, צלם ושלח אליי."
-        )
+        text = "📸 צילום עם תפילין\n\n" "לחץ על הכפתור כדי לפתוח את המצלמה בתוך Telegram, צלם ושלח אליי."
 
         keyboard = [
             [InlineKeyboardButton("פתח מצלמה 📷", web_app=WebAppInfo(camera_url))],
@@ -433,9 +421,7 @@ class TefillinBot:
                         [InlineKeyboardButton("⬅️ חזור", callback_data="back_to_menu")],
                     ]
                 )
-                await update.message.reply_text(
-                    "פתח את המצלמה מתוך Telegram:", reply_markup=keyboard
-                )
+                await update.message.reply_text("פתח את המצלמה מתוך Telegram:", reply_markup=keyboard)
                 return
 
             if text == "🕐 שינוי שעה":
@@ -458,9 +444,7 @@ class TefillinBot:
 
             # ברירת מחדל: זיהוי שעה ידנית
             if validate_time_input(text):
-                await update.message.reply_text(
-                    f"נראה שרצית לקבוע שעה: {text}\nהשתמש ב-/settings כדי לשנות את השעה היומית."
-                )
+                await update.message.reply_text(f"נראה שרצית לקבוע שעה: {text}\nהשתמש ב-/settings כדי לשנות את השעה היומית.")
             else:
                 await update.message.reply_text("שלום! 👋\nהשתמש ב-/menu או ב-/help לעזרה.")
         except Exception as e:
@@ -545,9 +529,7 @@ class TefillinBot:
 
         self.db_manager.update_user(user_id, {"skipped_date": today})
 
-        await update.message.reply_text(
-            "✅ דילגתי על התזכורת להיום.\nנתראה מחר עם תזכורת חדשה! 👋"
-        )
+        await update.message.reply_text("✅ דילגתי על התזכורת להיום.\nנתראה מחר עם תזכורת חדשה! 👋")
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
         """טיפול בשגיאות"""
@@ -572,10 +554,7 @@ class TefillinBot:
                 logger.warning("Leader lock is held by another instance. Standing by without polling.")
                 raise RuntimeError("Not leader - another instance is running")
         else:
-            logger.warning(
-                "Leader lock disabled via env. Starting without distributed lock "
-                "(temporary recovery mode)."
-            )
+            logger.warning("Leader lock disabled via env. Starting without distributed lock " "(temporary recovery mode).")
 
         # בדיקת חיבור למסד נתונים
         try:
