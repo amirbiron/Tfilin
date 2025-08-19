@@ -144,6 +144,10 @@ class TefillinScheduler:
         keyboard = [
             [InlineKeyboardButton("הנחתי ✅", callback_data="tefillin_done")],
             [
+                InlineKeyboardButton("קריאת שמע 📖", callback_data="show_shema"),
+                InlineKeyboardButton("צלם תמונה 📸", callback_data="take_selfie")
+            ],
+            [
                 InlineKeyboardButton("נודניק 1ש'", callback_data="snooze_60"),
                 InlineKeyboardButton("נודניק 3ש'", callback_data="snooze_180")
             ],
@@ -176,6 +180,10 @@ class TefillinScheduler:
         
         keyboard = [
             [InlineKeyboardButton("הנחתי ✅", callback_data="tefillin_done")],
+            [
+                InlineKeyboardButton("קריאת שמע 📖", callback_data="show_shema"),
+                InlineKeyboardButton("צלם תמונה 📸", callback_data="take_selfie")
+            ],
             [
                 InlineKeyboardButton("דחה 15 דק'", callback_data="snooze_15"),
                 InlineKeyboardButton("דחה 30 דק'", callback_data="snooze_30")
@@ -220,6 +228,10 @@ class TefillinScheduler:
         
         keyboard = [
             [InlineKeyboardButton("הנחתי ✅", callback_data="tefillin_done")],
+            [
+                InlineKeyboardButton("קריאת שמע 📖", callback_data="show_shema"),
+                InlineKeyboardButton("צלם תמונה 📸", callback_data="take_selfie")
+            ],
             [
                 InlineKeyboardButton("עוד נודניק 1ש'", callback_data="snooze_60"),
                 InlineKeyboardButton("עוד נודניק 3ש'", callback_data="snooze_180")

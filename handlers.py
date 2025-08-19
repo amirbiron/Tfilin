@@ -302,7 +302,7 @@ class TefillinHandlers:
 
     def get_conversation_handler(self):
         """יצירת ConversationHandler לזמן מותאם אישית"""
-        from telegram.ext import MessageHandler, filters, CommandHandler
+        from telegram.ext import MessageHandler, filters, CommandHandler, CallbackQueryHandler
         
         return ConversationHandler(
             entry_points=[CallbackQueryHandler(self.handle_custom_time_callback, pattern="time_custom")],
