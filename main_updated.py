@@ -301,7 +301,7 @@ class TefillinBot:
         # בדיקה שלא סומן כבר היום
         last_done = user.get("last_done")
         if last_done == today:
-            await query.edit_message_text("כבר סימנת שהנחת תפילין היום! ✅\n" "המשך יום מעולה! 🙏")
+            await query.edit_message_text("כבר סימנת שהנחת תפילין היום! ✅\nהמשך יום מעולה! 🙏")
             return
 
         # עדכון רצף
@@ -328,7 +328,7 @@ class TefillinBot:
             else:
                 streak_text = f"\n🔥 רצף: {new_streak} ימים"
 
-        await query.edit_message_text(f"איזה מלך! ✅🙏\n" f"המשך יום מעולה!{streak_text}")
+        await query.edit_message_text(f"איזה מלך! ✅🙏\nהמשך יום מעולה!{streak_text}")
 
     async def handle_show_shema(self, query):
         """הצגת נוסח קריאת שמע"""
@@ -433,7 +433,9 @@ class TefillinBot:
                         [InlineKeyboardButton("⬅️ חזור", callback_data="back_to_menu")],
                     ]
                 )
-                await update.message.reply_text("פתח את המצלמה מתוך Telegram:", reply_markup=keyboard)
+                await update.message.reply_text(
+                    "פתח את המצלמה מתוך Telegram:", reply_markup=keyboard
+                )
                 return
 
             if text == "🕐 שינוי שעה":
@@ -543,7 +545,9 @@ class TefillinBot:
 
         self.db_manager.update_user(user_id, {"skipped_date": today})
 
-        await update.message.reply_text("✅ דילגתי על התזכורת להיום.\n" "נתראה מחר עם תזכורת חדשה! 👋")
+        await update.message.reply_text(
+            "✅ דילגתי על התזכורת להיום.\nנתראה מחר עם תזכורת חדשה! 👋"
+        )
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
         """טיפול בשגיאות"""
