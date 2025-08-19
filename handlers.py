@@ -130,6 +130,7 @@ class TefillinHandlers:
                 InlineKeyboardButton("09:00", callback_data="time_09:00"),
             ],
             [InlineKeyboardButton("שעה אחרת...", callback_data="time_custom")],
+            [InlineKeyboardButton("⬅️ חזור", callback_data="back_to_menu")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -150,6 +151,7 @@ class TefillinHandlers:
                 InlineKeyboardButton("60 דק' לפני", callback_data="sunset_60"),
                 InlineKeyboardButton("90 דק' לפני", callback_data="sunset_90"),
             ],
+            [InlineKeyboardButton("⬅️ חזור", callback_data="back_to_menu")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -163,6 +165,7 @@ class TefillinHandlers:
         """עדכון הגדרת תזכורת שקיעה"""
         minutes = int(data.replace("sunset_", ""))
 
+        # עדכון לא הורס נתונים אחרים
         update_data = {"sunset_reminder": minutes}
         self.users_collection.update_one({"user_id": user_id}, {"$set": update_data})
 

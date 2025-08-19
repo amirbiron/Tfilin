@@ -1,10 +1,19 @@
 import asyncio
 import logging
 import os
-from datetime import datetime
+import uuid
+from datetime import datetime, timedelta
 
 from pymongo import MongoClient
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    Update,
+    WebAppInfo,
+)
+from telegram.error import Conflict
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
 
 from config import Config
@@ -31,8 +40,19 @@ class TefillinBot:
         self.db_manager = DatabaseManager(self.db_client)
         self.db_manager.setup_database()
 
+        # הגדרות נעילה מבוזרת (leader lock)
+        self.leader_owner_id = str(uuid.uuid4())
+        self.lock_ttl_seconds = int(os.getenv("LEADER_LOCK_TTL", "60"))
+        # אפשרות לעקוף נעילה כדי לשחזר במהירות תפקוד
+        # הוסף ב-Render: DISABLE_LEADER_LOCK=1 כדי לנטרל זמנית
+        self.leader_lock_enabled = os.getenv("DISABLE_LEADER_LOCK", "0").lower() not in ("1", "true", "yes")
+        self._lock_refresh_task = None
+
         # יצירת אפליקציית בוט
         self.app = Application.builder().token(Config.BOT_TOKEN).build()
+        # חיבור פעולות אתחול/סגירה כך שיפעלו גם כאשר מפעילים run_polling ישירות
+        self.app.post_init = self.startup
+        self.app.post_shutdown = self.shutdown
 
         # יצירת מודולים
         self.scheduler = TefillinScheduler(self.app, self.db_client)
@@ -46,10 +66,12 @@ class TefillinBot:
         """הגדרת כל ה-handlers לבוט"""
         # פקודות בסיסיות
         self.app.add_handler(CommandHandler("start", self.start_command))
+        self.app.add_handler(CommandHandler("menu", self.menu_command))
+        # פקודות
         self.app.add_handler(CommandHandler("settings", self.settings_command))
-        self.app.add_handler(CommandHandler("stats", self.stats_command))
-        self.app.add_handler(CommandHandler("help", self.help_command))
-        self.app.add_handler(CommandHandler("skip", self.skip_today_command))
+        self.app.add_handler(CommandHandler("stats", lambda u, c: self.stats_command(u, c)))
+        self.app.add_handler(CommandHandler("help", lambda u, c: self.help_command(u, c)))
+        self.app.add_handler(CommandHandler("skip", lambda u, c: self.skip_today_command(u, c)))
 
         # Conversation handler לזמן מותאם אישית
         self.app.add_handler(self.handlers.get_conversation_handler())
@@ -72,25 +94,65 @@ class TefillinBot:
         existing_user = self.db_manager.get_user(user_id)
 
         if existing_user:
-            current_time = existing_user.get("daily_time", "07:30")
-            streak = existing_user.get("streak", 0)
-
-            # כפתור להגדרות
-            keyboard = [[InlineKeyboardButton("⚙️ הגדרות", callback_data="show_settings")]]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-
-            await update.message.reply_text(
-                f"שלום שוב {user_name}! 👋\n\n"
-                f"🕐 השעה הנוכחית שלך: {current_time}\n"
-                f"🔥 רצף נוכחי: {streak} ימים\n\n"
-                f"הבוט פעיל ושולח תזכורות יומיות.\n"
-                f"משתמש ב-/help לעזרה נוספת.",
-                reply_markup=reply_markup,
-            )
+            await self.show_main_menu(update.message, existing_user, greeting=user_name)
             return
 
         # משתמש חדש - הצגת בחירת שעות
         await self.show_time_selection_for_new_user(update, user_name)
+
+    async def menu_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """פקודת /menu - הצגת תפריט ראשי"""
+        user_id = update.effective_user.id
+        user = self.db_manager.get_user(user_id)
+        await self.show_main_menu(update.message, user)
+
+    async def show_main_menu(self, message, user, greeting: str | None = None):
+        """הצגת תפריט ראשי עם כפתורי פעולה בתחתית ההקלדה (ReplyKeyboard)"""
+        base_url = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:10000"
+        camera_url = f"{base_url.rstrip('/')}/camera?chat_id={message.chat_id}"
+
+        # ReplyKeyboard בתחתית שורת ההקלדה
+        reply_keyboard = ReplyKeyboardMarkup(
+            [
+                [KeyboardButton("הנחתי ✅")],
+                [KeyboardButton("קריאת שמע 📖"), KeyboardButton("צלם תמונה 📸")],
+                [KeyboardButton("🕐 שינוי שעה"), KeyboardButton("🌇 תזכורת שקיעה")],
+                [KeyboardButton("📊 סטטיסטיקות"), KeyboardButton("⚙️ הגדרות")],
+            ],
+            resize_keyboard=True,
+            one_time_keyboard=False,
+            selective=False,
+        )
+
+        # InlineKeyboard עם פעולות (WebApp מצלמה בתוך טלגרם)
+        inline_keyboard = InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton("הנחתי ✅", callback_data="tefillin_done")],
+                [
+                    InlineKeyboardButton("קריאת שמע 📖", callback_data="show_shema"),
+                    InlineKeyboardButton("צלם תמונה 📸", web_app=WebAppInfo(camera_url)),
+                ],
+                [
+                    InlineKeyboardButton("🕐 שינוי שעה", callback_data="change_time"),
+                    InlineKeyboardButton("🌇 תזכורת שקיעה", callback_data="sunset_settings"),
+                ],
+                [
+                    InlineKeyboardButton("📊 סטטיסטיקות", callback_data="stats"),
+                    InlineKeyboardButton("⚙️ הגדרות", callback_data="show_settings"),
+                ],
+            ]
+        )
+
+        header = ""
+        if greeting is not None:
+            current_time = (user or {}).get("daily_time", "07:30")
+            streak = (user or {}).get("streak", 0)
+            header = f"שלום שוב {greeting}! 👋\n\n" f"🕐 שעה יומית: {current_time}\n" f"🔥 רצף: {streak} ימים\n\n"
+
+        # ודא שהטקסט לא ריק כדי לא לשבור שליחת הודעה
+        text_for_reply_keyboard = header if header.strip() else "\u00a0"
+        await message.reply_text(text_for_reply_keyboard, reply_markup=reply_keyboard)
+        await message.reply_text("תפריט פעולות:", reply_markup=inline_keyboard)
 
     async def show_time_selection_for_new_user(self, update, user_name):
         """הצגת בחירת שעה למשתמש חדש"""
@@ -131,13 +193,18 @@ class TefillinBot:
         user_id = query.from_user.id
 
         try:
+            # תשובה מהירה כדי למנוע "טוען..." אינסופי בכפתור
+            await query.answer()
             if data.startswith("time_"):
                 await self.handle_time_selection(query, user_id, data)
             elif data == "tefillin_done":
                 await self.handle_tefillin_done(query, user_id)
             elif data.startswith("snooze_"):
                 await self.handlers.handle_snooze_callback(update, context)
-            elif data in ["show_settings", "change_time", "stats", "sunset_settings", "back_to_settings"]:
+            elif data == "back_to_settings":
+                user = self.db_manager.get_user(user_id)
+                await self.show_main_settings(query.message, user)
+            elif data in ["show_settings", "change_time", "stats", "sunset_settings"]:
                 await self.handlers.handle_settings_callback(update, context)
             elif data.startswith("sunset_"):
                 await self.handlers.handle_settings_callback(update, context)
@@ -147,6 +214,17 @@ class TefillinBot:
                 await self.handle_show_shema(query)
             elif data == "take_selfie":
                 await self.handle_take_selfie(query)
+            elif data == "show_help":
+                # שליחת טקסט העזרה כמו ב-/help
+                dummy_update = type(
+                    "U",
+                    (),
+                    {"message": query.message, "effective_user": update.effective_user},
+                )()
+                await self.help_command(dummy_update, context)
+            elif data == "back_to_menu":
+                user = self.db_manager.get_user(user_id)
+                await self.show_main_menu(query.message, user)
             else:
                 await query.answer("פעולה לא מזוהה")
 
@@ -163,25 +241,35 @@ class TefillinBot:
         # חילוץ השעה
         time_str = data.replace("time_", "")
 
-        # שמירת המשתמש
-        user_data = {
-            "user_id": user_id,
-            "daily_time": time_str,
-            "timezone": Config.DEFAULT_TIMEZONE,
-            "created_at": datetime.now(),
-            "active": True,
-            "streak": 0,
-            "sunset_reminder": 0,  # כבוי כברירת מחדל
-            "skip_shabbat": Config.SKIP_SHABBAT,
-            "skip_holidays": Config.SKIP_HOLIDAYS,
-        }
+        # עדכון לא הורס הגדרות קיימות: אם המשתמש קיים, עדכן רק את השעה; אחרת צור חדש
+        existing = self.db_manager.get_user(user_id)
+        if existing:
+            self.db_manager.update_user(user_id, {"daily_time": time_str})
+        else:
+            user_data = {
+                "user_id": user_id,
+                "daily_time": time_str,
+                "timezone": Config.DEFAULT_TIMEZONE,
+                "created_at": datetime.now(),
+                "active": True,
+                "streak": 0,
+                "sunset_reminder": 0,
+                "skip_shabbat": Config.SKIP_SHABBAT,
+                "skip_holidays": Config.SKIP_HOLIDAYS,
+            }
+            self.db_manager.upsert_user(user_id, user_data)
 
-        self.db_manager.upsert_user(user_id, user_data)
-
-        # כפתורי המשך
+        # כפתורי המשך / תפריט ראשי
+        base_url = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:10000"
+        camera_url = f"{base_url.rstrip('/')}/camera?chat_id={query.message.chat_id}"
         keyboard = [
             [InlineKeyboardButton("🌇 הגדרת תזכורת שקיעה", callback_data="sunset_settings")],
-            [InlineKeyboardButton("⚙️ הגדרות נוספות", callback_data="show_settings")],
+            [
+                InlineKeyboardButton("קריאת שמע 📖", callback_data="show_shema"),
+                InlineKeyboardButton("צלם תמונה 📸", web_app=WebAppInfo(camera_url)),
+            ],
+            # הוסר כפתור "הגדרות נוספות"
+            [InlineKeyboardButton("⬅️ חזור", callback_data="back_to_menu")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -206,12 +294,12 @@ class TefillinBot:
         # בדיקה שלא סומן כבר היום
         last_done = user.get("last_done")
         if last_done == today:
-            await query.edit_message_text("כבר סימנת שהנחת תפילין היום! ✅\n" "המשך יום מעולה! 🙏")
+            await query.edit_message_text("כבר סימנת שהנחת תפילין היום! ✅\nהמשך יום מעולה! 🙏")
             return
 
         # עדכון רצף
         current_streak = user.get("streak", 0)
-        yesterday = (datetime.now().date() - datetime.timedelta(days=1)).isoformat()
+        yesterday = (datetime.now().date() - timedelta(days=1)).isoformat()
 
         # בדיקה אם הרצף נמשך (הנחה אתמול או התחלת רצף חדש)
         if last_done == yesterday:
@@ -233,7 +321,7 @@ class TefillinBot:
             else:
                 streak_text = f"\n🔥 רצף: {new_streak} ימים"
 
-        await query.edit_message_text(f"איזה מלך! ✅🙏\n" f"המשך יום מעולה!{streak_text}")
+        await query.edit_message_text(f"איזה מלך! ✅🙏\nהמשך יום מעולה!{streak_text}")
 
     async def handle_show_shema(self, query):
         """הצגת נוסח קריאת שמע"""
@@ -250,45 +338,118 @@ class TefillinBot:
 וּכְתַבְתָּם עַל מְזוּזֹת בֵּיתֶךָ וּבִשְׁעָרֶיךָ.
 
 **פרשה שניה:**
-וְהָיָה אִם שָׁמֹעַ תִּשְׁמְעוּ אֶל מִצְוֹתַי אֲשֶׁר אָנֹכִי מְצַוֶּה אֶתְכֶם הַיּוֹם
+וְהָיָה אִם שָׁמֹעַ תִּשְׁמְעוּ אֶל מִצְוֹתַי אֲשֶׁר אָנֹכִי מְצַוֶּה אֶתְכֶם הַיּוֹם 
 לְאַהֲבָה אֶת ה' אֱלֹהֵיכֶם וּלְעָבְדוֹ בְּכָל לְבַבְכֶם וּבְכָל נַפְשְׁכֶם.
 וְנָתַתִּי מְטַר אַרְצְכֶם בְּעִתּוֹ יוֹרֶה וּמַלְקוֹשׁ וְאָסַפְתָּ דְגָנֶךָ וְתִירֹשְׁךָ וְיִצְהָרֶךָ.
 וְנָתַתִּי עֵשֶׂב בְּשָׂדְךָ לִבְהֶמְתֶּךָ וְאָכַלְתָּ וְשָׂבָעְתָּ.
-
-(להמשך הקריאה המלאה, ראה סידור תפילה)
+הִשָּׁמְרוּ לָכֶם פֶּן יִפְתֶּה לְבַבְכֶם וְסַרְתֶּם וַעֲבַדְתֶּם אֱלֹהִים אֲחֵרִים וְהִשְׁתַּחֲוִיתֶם לָהֶם.
+וְחָרָה אַף ה' בָּכֶם וְעָצַר אֶת הַשָּׁמַיִם וְלֹא יִהְיֶה מָטָר וְהָאֲדָמָה לֹא תִתֵּן אֶת יְבוּלָהּ, 
+וַאֲבַדְתֶּם מְהֵרָה מֵעַל הָאָרֶץ הַטּוֹבָה אֲשֶׁר ה' נֹתֵן לָכֶם.
+וְשַׂמְתֶּם אֶת דְּבָרַי אֵלֶּה עַל לְבַבְכֶם וְעַל נַפְשְׁכֶם; 
+וּקְשַׁרְתֶּם אֹתָם לְאוֹת עַל יֶדְכֶם וְהָיוּ לְטוֹטָפֹת בֵּין עֵינֵיכֶם.
+וְלִמַּדְתֶּם אֹתָם אֶת בְּנֵיכֶם לְדַבֵּר בָּם בְּשִׁבְתְּךָ בְּבֵיתֶךָ וּבְלֶכְתְּךָ בַדֶּרֶךְ וּבְשָׁכְבְּךָ וּבְקוּמֶךָ.
+וּכְתַבְתָּם עַל מְזוּזֹת בֵּיתֶךָ וּבִשְׁעָרֶיךָ.
+לְמַעַן יִרְבּוּ יְמֵיכֶם וִימֵי בְּנֵיכֶם עַל הָאֲדָמָה אֲשֶׁר נִשְׁבַּע ה' לַאֲבֹתֵיכֶם לָתֵת לָהֶם, 
+כִּימֵי הַשָּׁמַיִם עַל הָאָרֶץ.
 
 🙏 יהי רצון שתהיה קריאתך מקובלת לפני הקב"ה"""
 
-        await query.edit_message_text(shema_text, parse_mode="Markdown")
+        keyboard = [[InlineKeyboardButton("⬅️ חזור", callback_data="back_to_menu")]]
+        await query.edit_message_text(shema_text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
 
     async def handle_take_selfie(self, query):
-        """הנחיה לצילום תמונה עם תפילין"""
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        """פתיחת מצלמה באמצעות Web App"""
+        base_url = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:10000"
+        camera_url = f"{base_url.rstrip('/')}/camera?chat_id={query.message.chat_id}"
 
-        selfie_text = """📸 צילום עם תפילין
+        text = "📸 צילום עם תפילין\n\n" "לחץ על הכפתור כדי לפתוח את המצלמה בתוך Telegram, צלם ושלח אליי."
 
-**איך לצלם תמונה מושלמת עם תפילין:**
-
-1️⃣ **תאורה** - עמוד ליד חלון או במקום מואר
-2️⃣ **זווית** - החזק את הטלפון בגובה העיניים או מעט למעלה
-3️⃣ **רקע** - בחר רקע נקי ומסודר
-4️⃣ **חיוך** - חייך! אתה מקיים מצווה חשובה 😊
-
-**טיפים נוספים:**
-• ודא שהתפילין של ראש ושל יד נראים בתמונה
-• התפילין של ראש צריך להיות במרכז המצח
-• הרצועות צריכות להיות מסודרות
-
-📱 **לצילום:** 
-פתח את אפליקציית המצלמה בטלפון שלך
-או שלח לי תמונה ישירות כאן בצ'אט!
-
-שתזכה למצוות! 🙏"""
-
-        keyboard = [[InlineKeyboardButton("חזרה לתפריט ⬅️", callback_data="tefillin_done")]]
+        keyboard = [
+            [InlineKeyboardButton("פתח מצלמה 📷", web_app=WebAppInfo(camera_url))],
+            [InlineKeyboardButton("⬅️ חזור", callback_data="back_to_menu")],
+        ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        await query.edit_message_text(selfie_text, parse_mode="Markdown", reply_markup=reply_markup)
+        await query.edit_message_text(text, reply_markup=reply_markup)
+
+    async def handle_text_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """מיפוי כפתורי ReplyKeyboard לפעולות"""
+        text = (update.message.text or "").strip()
+        user_id = update.effective_user.id
+        user = self.db_manager.get_user(user_id)
+
+        try:
+            if text == "הנחתי ✅":
+                # עיבוד כמו handle_tefillin_done אך בהודעת טקסט
+                today = datetime.now().date().isoformat()
+                if user:
+                    last_done = user.get("last_done")
+                    if last_done == today:
+                        await update.message.reply_text("כבר סימנת שהנחת היום ✅")
+                        return
+                    current_streak = user.get("streak", 0)
+                    yesterday = (datetime.now().date() - timedelta(days=1)).isoformat()
+                    new_streak = current_streak + 1 if last_done == yesterday else 1
+                    self.db_manager.update_user(
+                        user_id,
+                        {"streak": new_streak, "last_done": today, "last_done_time": datetime.now().isoformat()},
+                    )
+                    streak_text = ""
+                    if new_streak > 1:
+                        if new_streak >= 7:
+                            streak_text = f"\n🔥 אלוף! רצף של {new_streak} ימים!"
+                        elif new_streak >= 3:
+                            streak_text = f"\n🔥 כל הכבוד! רצף של {new_streak} ימים!"
+                        else:
+                            streak_text = f"\n🔥 רצף: {new_streak} ימים"
+                    await update.message.reply_text(f"איזה מלך! ✅🙏\nהמשך יום מעולה!{streak_text}")
+                else:
+                    await update.message.reply_text("לא נמצאת במערכת. הקש /start להרשמה.")
+                return
+
+            if text == "קריאת שמע 📖":
+                await self.handle_show_shema(type("Q", (), {"edit_message_text": update.message.reply_text})())
+                return
+
+            if text == "צלם תמונה 📸":
+                # שלח הודעה עם Inline כפתור WebApp למצלמה
+                base_url = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:10000"
+                camera_url = f"{base_url.rstrip('/')}/camera?chat_id={update.message.chat_id}"
+                keyboard = InlineKeyboardMarkup(
+                    [
+                        [InlineKeyboardButton("פתח מצלמה 📷", web_app=WebAppInfo(camera_url))],
+                        [InlineKeyboardButton("⬅️ חזור", callback_data="back_to_menu")],
+                    ]
+                )
+                await update.message.reply_text("פתח את המצלמה מתוך Telegram:", reply_markup=keyboard)
+                return
+
+            if text == "🕐 שינוי שעה":
+                await self.handlers.show_time_selection(type("Q", (), {"edit_message_text": update.message.reply_text})())
+                return
+
+            if text == "🌇 תזכורת שקיעה":
+                await self.handlers.show_sunset_settings(
+                    type("Q", (), {"edit_message_text": update.message.reply_text})(), user_id
+                )
+                return
+
+            if text == "📊 סטטיסטיקות":
+                await self.stats_command(update, context)
+                return
+
+            if text == "⚙️ הגדרות":
+                await self.settings_command(update, context)
+                return
+
+            # ברירת מחדל: זיהוי שעה ידנית
+            if validate_time_input(text):
+                await update.message.reply_text(f"נראה שרצית לקבוע שעה: {text}\nהשתמש ב-/settings כדי לשנות את השעה היומית.")
+            else:
+                await update.message.reply_text("שלום! 👋\nהשתמש ב-/menu או ב-/help לעזרה.")
+        except Exception as e:
+            logger.error(f"Error in text handler: {e}")
+            await update.message.reply_text("אירעה שגיאה, נסה שוב.")
 
     async def settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """פקודת הגדרות מפורטת"""
@@ -312,6 +473,7 @@ class TefillinBot:
                 InlineKeyboardButton("📊 סטטיסטיקות", callback_data="stats"),
                 InlineKeyboardButton("ℹ️ עזרה", callback_data="show_help"),
             ],
+            [InlineKeyboardButton("⬅️ חזור", callback_data="back_to_menu")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -341,6 +503,7 @@ class TefillinBot:
             f"🤖 בוט תזכורות תפילין\n\n"
             f"📋 פקודות זמינות:\n"
             f"/start - הרשמה או חזרה לבוט\n"
+            f"/menu - תפריט ראשי\n"
             f"/settings - הגדרות מתקדמות\n"
             f"/stats - סטטיסטיקות מפורטות\n"
             f"/skip - דלג על התזכורת היום\n"
@@ -366,22 +529,14 @@ class TefillinBot:
 
         self.db_manager.update_user(user_id, {"skipped_date": today})
 
-        await update.message.reply_text("✅ דילגתי על התזכורת להיום.\n" "נתראה מחר עם תזכורת חדשה! 👋")
-
-    async def handle_text_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """טיפול בהודעות טקסט רגילות"""
-        # בדיקה אם זה נראה כמו שעה
-        text = update.message.text.strip()
-        if validate_time_input(text):
-            await update.message.reply_text(f"נראה שרצית לקבוע שעה: {text}\n" f"השתמש ב-/settings כדי לשנות את השעה היומית.")
-        else:
-            await update.message.reply_text(f"שלום! 👋\n" f"השתמש ב-/help לרשימת פקודות זמינות.")
+        await update.message.reply_text("✅ דילגתי על התזכורת להיום.\nנתראה מחר עם תזכורת חדשה! 👋")
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
         """טיפול בשגיאות"""
+        if isinstance(getattr(context, "error", None), Conflict):
+            logger.warning("Conflict detected (409) – another polling process may be active. Ignoring temporarily.")
+            return
         logger.error(f"Exception while handling an update: {context.error}")
-
-        # אם יש update, נסה לשלוח הודעת שגיאה למשתמש
         if isinstance(update, Update) and update.effective_message:
             try:
                 await update.effective_message.reply_text("מצטער, אירעה שגיאה. אנא נסה שוב מאוחר יותר.")
@@ -391,6 +546,15 @@ class TefillinBot:
     async def startup(self, application):
         """פעולות אתחול"""
         logger.info("Starting Tefillin Bot...")
+
+        # ניסיון קבלת leader lock לפני תחילת polling (אם לא מנוטרל)
+        if self.leader_lock_enabled:
+            got_lock = self.db_manager.acquire_leader_lock(self.leader_owner_id, ttl_seconds=self.lock_ttl_seconds)
+            if not got_lock:
+                logger.warning("Leader lock is held by another instance. Standing by without polling.")
+                raise RuntimeError("Not leader - another instance is running")
+        else:
+            logger.warning("Leader lock disabled via env. Starting without distributed lock " "(temporary recovery mode).")
 
         # בדיקת חיבור למסד נתונים
         try:
@@ -403,6 +567,10 @@ class TefillinBot:
         # התחלת הסקדיולר
         self.scheduler.start()
 
+        # הפעלת משימת רענון לוק כדי לשמור בעלות (רק אם נעילה פעילה)
+        if self.leader_lock_enabled:
+            self._lock_refresh_task = asyncio.create_task(self._refresh_leader_lock_task())
+
         # עדכון זמני שקיעה
         await self.scheduler.update_daily_times()
 
@@ -413,31 +581,43 @@ class TefillinBot:
         logger.info("Shutting down Tefillin Bot...")
 
         # עצירת הסקדיולר
-        self.scheduler.stop()
+        try:
+            if hasattr(self, "scheduler") and self.scheduler and self.scheduler.is_running():
+                self.scheduler.stop()
+        except Exception as e:
+            logger.warning(f"Scheduler stop skipped: {e}")
+
+        # עצירת משימת רענון הלוק
+        try:
+            if self._lock_refresh_task:
+                self._lock_refresh_task.cancel()
+        except Exception:
+            pass
+
+        # שחרור ה-leader lock (רק אם נעילה פעילה)
+        if self.leader_lock_enabled:
+            try:
+                self.db_manager.release_leader_lock(self.leader_owner_id)
+            except Exception:
+                pass
 
         # סגירת חיבור למסד נתונים
         self.db_client.close()
 
         logger.info("Bot shutdown completed")
 
-    def run(self):
-        """הרצת הבוט"""
+    async def _refresh_leader_lock_task(self):
+        """משימה שומרת-חיים לרענון ה-leader lock באופן מחזורי"""
+        # אם נעילה מנוטרלת אין מה לרענן
+        if not self.leader_lock_enabled:
+            return
         try:
-            # הוספת פעולות startup ו-shutdown
-            self.app.post_init = self.startup
-            self.app.post_shutdown = self.shutdown
-
-            # הרצת הבוט
-            logger.info("Starting bot polling...")
-            self.app.run_polling(drop_pending_updates=True)
-
-        except KeyboardInterrupt:
-            logger.info("Bot stopped by user")
-        except Exception as e:
-            logger.error(f"Critical error: {e}")
-            raise
-
-
-if __name__ == "__main__":
-    bot = TefillinBot()
-    bot.run()
+            while True:
+                await asyncio.sleep(max(5, self.lock_ttl_seconds // 2))
+                ok = self.db_manager.refresh_leader_lock(self.leader_owner_id, ttl_seconds=self.lock_ttl_seconds)
+                if not ok:
+                    logger.error("Lost leader lock. Stopping application to avoid duplicate polling.")
+                    await self.app.stop()
+                    break
+        except asyncio.CancelledError:
+            return

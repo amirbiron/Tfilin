@@ -42,6 +42,14 @@ class TefillinScheduler:
         self.scheduler.shutdown()
         logger.info("Scheduler stopped")
 
+    def is_running(self) -> bool:
+        """בדיקה אם הסקדיולר רץ כרגע"""
+        try:
+            # STATE_RUNNING == 1 ב-APScheduler
+            return getattr(self.scheduler, "state", 0) == 1
+        except Exception:
+            return False
+
     async def check_daily_reminders(self):
         """בדיקת תזכורות יומיות"""
         now = datetime.now(timezone(Config.DEFAULT_TIMEZONE))
