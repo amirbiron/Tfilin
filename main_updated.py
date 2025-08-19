@@ -53,6 +53,7 @@ class TefillinBot:
         """הגדרת כל ה-handlers לבוט"""
         # פקודות בסיסיות
         self.app.add_handler(CommandHandler("start", self.start_command))
+        self.app.add_handler(CommandHandler("menu", self.menu_command))
         self.app.add_handler(CommandHandler("settings", self.settings_command))
         self.app.add_handler(CommandHandler("stats", self.stats_command))
         self.app.add_handler(CommandHandler("help", self.help_command))
@@ -79,25 +80,50 @@ class TefillinBot:
         existing_user = self.db_manager.get_user(user_id)
 
         if existing_user:
-            current_time = existing_user.get("daily_time", "07:30")
-            streak = existing_user.get("streak", 0)
-
-            # כפתור להגדרות
-            keyboard = [[InlineKeyboardButton("⚙️ הגדרות", callback_data="show_settings")]]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-
-            await update.message.reply_text(
-                f"שלום שוב {user_name}! 👋\n\n"
-                f"🕐 השעה הנוכחית שלך: {current_time}\n"
-                f"🔥 רצף נוכחי: {streak} ימים\n\n"
-                f"הבוט פעיל ושולח תזכורות יומיות.\n"
-                f"משתמש ב-/help לעזרה נוספת.",
-                reply_markup=reply_markup,
-            )
+            await self.show_main_menu(update.message, existing_user, greeting=user_name)
             return
 
         # משתמש חדש - הצגת בחירת שעות
         await self.show_time_selection_for_new_user(update, user_name)
+
+    async def menu_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """פקודת /menu - הצגת תפריט ראשי"""
+        user_id = update.effective_user.id
+        user = self.db_manager.get_user(user_id)
+        await self.show_main_menu(update.message, user)
+
+    async def show_main_menu(self, message, user, greeting: str | None = None):
+        """הצגת תפריט ראשי עם כפתורי פעולה"""
+        keyboard = [
+            [InlineKeyboardButton("הנחתי ✅", callback_data="tefillin_done")],
+            [
+                InlineKeyboardButton("קריאת שמע 📖", callback_data="show_shema"),
+                InlineKeyboardButton("צלם תמונה 📸", callback_data="take_selfie"),
+            ],
+            [
+                InlineKeyboardButton("🕐 שינוי שעה", callback_data="change_time"),
+                InlineKeyboardButton("🌇 תזכורת שקיעה", callback_data="sunset_settings"),
+            ],
+            [
+                InlineKeyboardButton("📊 סטטיסטיקות", callback_data="stats"),
+                InlineKeyboardButton("⚙️ הגדרות", callback_data="show_settings"),
+            ],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        header = ""
+        if greeting is not None:
+            current_time = (user or {}).get("daily_time", "07:30")
+            streak = (user or {}).get("streak", 0)
+            header = (
+                f"שלום שוב {greeting}! 👋\n\n"
+                f"🕐 שעה יומית: {current_time}\n"
+                f"🔥 רצף: {streak} ימים\n\n"
+            )
+
+        await message.reply_text(
+            header + "מה תרצה לעשות עכשיו?", reply_markup=reply_markup
+        )
 
     async def show_time_selection_for_new_user(self, update, user_name):
         """הצגת בחירת שעה למשתמש חדש"""
@@ -185,9 +211,13 @@ class TefillinBot:
 
         self.db_manager.upsert_user(user_id, user_data)
 
-        # כפתורי המשך
+        # כפתורי המשך / תפריט ראשי
         keyboard = [
             [InlineKeyboardButton("🌇 הגדרת תזכורת שקיעה", callback_data="sunset_settings")],
+            [
+                InlineKeyboardButton("קריאת שמע 📖", callback_data="show_shema"),
+                InlineKeyboardButton("צלם תמונה 📸", callback_data="take_selfie"),
+            ],
             [InlineKeyboardButton("⚙️ הגדרות נוספות", callback_data="show_settings")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
