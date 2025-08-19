@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 
 from pymongo import MongoClient
@@ -248,7 +248,7 @@ class TefillinBot:
 
         # עדכון רצף
         current_streak = user.get("streak", 0)
-        yesterday = (datetime.now().date() - datetime.timedelta(days=1)).isoformat()
+        yesterday = (datetime.now().date() - timedelta(days=1)).isoformat()
 
         # בדיקה אם הרצף נמשך (הנחה אתמול או התחלת רצף חדש)
         if last_done == yesterday:
