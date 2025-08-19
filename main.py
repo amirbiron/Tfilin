@@ -1,21 +1,22 @@
 import logging
 import os
 from datetime import datetime, timedelta
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+
 from pymongo import MongoClient
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
+
 from config import Config
 
 # הגדרת לוגים
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
-)
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # התחברות ל-MongoDB
 client = MongoClient(Config.MONGODB_URI)
 db = client.tefillin_bot
 users_collection = db.users
+
 
 class TefillinBot:
     def __init__(self):
@@ -32,10 +33,10 @@ class TefillinBot:
         """פקודת /start - הרשמה ראשונית"""
         user_id = update.effective_user.id
         user_name = update.effective_user.first_name or "ידידי"
-        
+
         # בדיקה אם המשתמש כבר קיים
         existing_user = users_collection.find_one({"user_id": user_id})
-        
+
         if existing_user:
             await update.message.reply_text(
                 f"שלום {user_name}! 👋\n"
@@ -49,28 +50,26 @@ class TefillinBot:
         keyboard = [
             [
                 InlineKeyboardButton("06:30", callback_data="time_06:30"),
-                InlineKeyboardButton("07:00", callback_data="time_07:00")
+                InlineKeyboardButton("07:00", callback_data="time_07:00"),
             ],
             [
                 InlineKeyboardButton("07:30", callback_data="time_07:30"),
-                InlineKeyboardButton("08:00", callback_data="time_08:00")
+                InlineKeyboardButton("08:00", callback_data="time_08:00"),
             ],
-            [InlineKeyboardButton("שעה אחרת...", callback_data="time_custom")]
+            [InlineKeyboardButton("שעה אחרת...", callback_data="time_custom")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         await update.message.reply_text(
-            f"ברוך הבא {user_name}! 🙏\n\n"
-            f"בוט התזכורות לתפילין יעזור לך לא לשכוח.\n"
-            f"בחר שעה יומית לתזכורת:",
-            reply_markup=reply_markup
+            f"ברוך הבא {user_name}! 🙏\n\n" f"בוט התזכורות לתפילין יעזור לך לא לשכוח.\n" f"בחר שעה יומית לתזכורת:",
+            reply_markup=reply_markup,
         )
 
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """טיפול בלחיצות כפתורים"""
         query = update.callback_query
         await query.answer()
-        
+
         user_id = query.from_user.id
         data = query.data
 
@@ -84,14 +83,12 @@ class TefillinBot:
     async def handle_time_selection(self, query, user_id, data):
         """טיפול בבחירת שעה"""
         if data == "time_custom":
-            await query.edit_message_text(
-                "שלח לי שעה בפורמט HH:MM (למשל: 08:15)"
-            )
+            await query.edit_message_text("שלח לי שעה בפורמט HH:MM (למשל: 08:15)")
             return
 
         # חילוץ השעה
         time_str = data.replace("time_", "")
-        
+
         # שמירת המשתמש במסד הנתונים
         user_data = {
             "user_id": user_id,
@@ -99,14 +96,10 @@ class TefillinBot:
             "timezone": "Asia/Jerusalem",
             "created_at": datetime.now(),
             "active": True,
-            "streak": 0
+            "streak": 0,
         }
-        
-        users_collection.update_one(
-            {"user_id": user_id},
-            {"$set": user_data},
-            upsert=True
-        )
+
+        users_collection.update_one({"user_id": user_id}, {"$set": user_data}, upsert=True)
 
         await query.edit_message_text(
             f"מעולה! ✅\n"
@@ -122,49 +115,33 @@ class TefillinBot:
         if user:
             new_streak = user.get("streak", 0) + 1
             users_collection.update_one(
-                {"user_id": user_id},
-                {
-                    "$set": {
-                        "streak": new_streak,
-                        "last_done": datetime.now().date().isoformat()
-                    }
-                }
+                {"user_id": user_id}, {"$set": {"streak": new_streak, "last_done": datetime.now().date().isoformat()}}
             )
-            
+
             streak_text = f"\n🔥 רצף נוכחי: {new_streak} ימים!" if new_streak > 1 else ""
-            
-            await query.edit_message_text(
-                f"איזה מלך! ✅🙏\n"
-                f"המשך יום מעולה!{streak_text}"
-            )
+
+            await query.edit_message_text(f"איזה מלך! ✅🙏\n" f"המשך יום מעולה!{streak_text}")
 
     async def handle_snooze(self, query, user_id, data):
         """טיפול בנודניק"""
-        snooze_minutes = {
-            "snooze_60": 60,
-            "snooze_180": 180
-        }.get(data, 60)
+        snooze_minutes = {"snooze_60": 60, "snooze_180": 180}.get(data, 60)
 
-        await query.edit_message_text(
-            f"סגור. אזכיר עוד {snooze_minutes // 60} שעות ⏰"
-        )
-        
+        await query.edit_message_text(f"סגור. אזכיר עוד {snooze_minutes // 60} שעות ⏰")
+
         # כאן נוסיף את לוגיקת התזמון בהמשך
 
     async def settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """פקודת הגדרות"""
         user_id = update.effective_user.id
         user = users_collection.find_one({"user_id": user_id})
-        
+
         if not user:
-            await update.message.reply_text(
-                "לא נמצאת במערכת. הקש /start להרשמה."
-            )
+            await update.message.reply_text("לא נמצאת במערכת. הקש /start להרשמה.")
             return
 
         keyboard = [
             [InlineKeyboardButton("שינוי שעה יומית", callback_data="change_time")],
-            [InlineKeyboardButton("סטטיסטיקות", callback_data="stats")]
+            [InlineKeyboardButton("סטטיסטיקות", callback_data="stats")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -172,11 +149,8 @@ class TefillinBot:
         streak = user.get("streak", 0)
 
         await update.message.reply_text(
-            f"⚙️ ההגדרות שלך:\n\n"
-            f"🕐 שעה יומית: {current_time}\n"
-            f"🔥 רצף נוכחי: {streak} ימים\n\n"
-            f"מה תרצה לשנות?",
-            reply_markup=reply_markup
+            f"⚙️ ההגדרות שלך:\n\n" f"🕐 שעה יומית: {current_time}\n" f"🔥 רצף נוכחי: {streak} ימים\n\n" f"מה תרצה לשנות?",
+            reply_markup=reply_markup,
         )
 
     async def send_daily_reminder(self, user_id: int):
@@ -185,18 +159,16 @@ class TefillinBot:
             [InlineKeyboardButton("הנחתי ✅", callback_data="tefillin_done")],
             [
                 InlineKeyboardButton("נודניק 1ש'", callback_data="snooze_60"),
-                InlineKeyboardButton("נודניק 3ש'", callback_data="snooze_180")
-            ]
+                InlineKeyboardButton("נודניק 3ש'", callback_data="snooze_180"),
+            ],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         try:
             await self.app.bot.send_message(
                 chat_id=user_id,
-                text="⏰ תזכורת יומית – תפילין\n"
-                     "הגיע הזמן להניח תפילין.\n"
-                     "מה תרצה לעשות?",
-                reply_markup=reply_markup
+                text="⏰ תזכורת יומית – תפילין\n" "הגיע הזמן להניח תפילין.\n" "מה תרצה לעשות?",
+                reply_markup=reply_markup,
             )
         except Exception as e:
             logger.error(f"Failed to send reminder to {user_id}: {e}")
@@ -205,6 +177,7 @@ class TefillinBot:
         """הרצת הבוט"""
         logger.info("Starting Tefillin Bot...")
         self.app.run_polling()
+
 
 if __name__ == "__main__":
     bot = TefillinBot()
