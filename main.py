@@ -167,7 +167,7 @@ class TefillinBot:
         try:
             await self.app.bot.send_message(
                 chat_id=user_id,
-                text="⏰ תזכורת יומית – תפילין\n" "הגיע הזמן להניח תפילין.\n" "מה תרצה לעשות?",
+                text="⏰ תזכורת יומית – תפילין\nהגיע הזמן להניח תפילין.\nמה תרצה לעשות?",
                 reply_markup=reply_markup,
             )
         except Exception as e:

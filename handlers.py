@@ -104,7 +104,7 @@ class TefillinHandlers:
         reminder_str = reminder_time.strftime("%H:%M")
 
         await query.edit_message_text(
-            f"מעולה! 🌇\נאזכיר ב-{reminder_str} (30 דק' לפני השקיעה ב-{sunset_str})"
+            f"מעולה! 🌇\nאזכיר ב-{reminder_str} (30 דק' לפני השקיעה ב-{sunset_str})"
         )
 
     async def handle_settings_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -276,7 +276,7 @@ class TefillinHandlers:
         # סימון שדולג היום
         self.users_collection.update_one({"user_id": user_id}, {"$set": {"skipped_date": today}})
 
-        await query.edit_message_text("הבנתי. לא אזכיר יותר היום.\ננתראה מחר! 👋")
+        await query.edit_message_text("הבנתי. לא אזכיר יותר היום.\nנתראה מחר! 👋")
 
     def get_conversation_handler(self):
         """יצירת ConversationHandler לזמן מותאם אישית"""
@@ -296,7 +296,9 @@ class TefillinHandlers:
         query = update.callback_query
         await query.answer()
 
-        await query.edit_message_text("שלח לי שעה בפורמט HH:MM\n" "למשל: 08:15 או 07:45\n\n" "או שלח /cancel לביטול")
+        await query.edit_message_text(
+            "שלח לי שעה בפורמט HH:MM\nלמשל: 08:15 או 07:45\n\nאו שלח /cancel לביטול"
+        )
 
         return WAITING_CUSTOM_TIME
 

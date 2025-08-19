@@ -374,7 +374,9 @@ class TefillinBot:
         base_url = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:10000"
         camera_url = f"{base_url.rstrip('/')}/webapp/camera"
 
-        text = "📸 צילום עם תפילין\n\n" "לחץ על הכפתור כדי לפתוח את המצלמה בתוך Telegram, צלם ושלח אליי."
+        text = (
+            "📸 צילום עם תפילין\n\nלחץ על הכפתור כדי לפתוח את המצלמה בתוך Telegram, צלם ושלח אליי."
+        )
 
         keyboard = [
             [InlineKeyboardButton("פתח מצלמה 📷", web_app=WebAppInfo(camera_url))],
