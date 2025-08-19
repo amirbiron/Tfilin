@@ -151,7 +151,11 @@ class TefillinBot:
         if greeting is not None:
             current_time = (user or {}).get("daily_time", "07:30")
             streak = (user or {}).get("streak", 0)
-            header = f"שלום שוב {greeting}! 👋\n\n" f"🕐 שעה יומית: {current_time}\n" f"🔥 רצף: {streak} ימים\n\n"
+            header = (
+                f"שלום שוב {greeting}! 👋\n\n"
+                f"🕐 שעה יומית: {current_time}\n"
+                f"🔥 רצף: {streak} ימים\n\n"
+            )
 
         # ודא שהטקסט לא ריק כדי לא לשבור שליחת הודעה
         text_for_reply_keyboard = header if header.strip() else "\u00a0"
@@ -278,11 +282,13 @@ class TefillinBot:
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         await query.edit_message_text(
-            f"מעולה! ✅\n"
-            f"תזכורת יומית נקבעה לשעה {time_str}.\n\n"
-            f"📅 תקבל תזכורת כל יום (חוץ משבת וחגים)\n"
-            f"🔔 אפשר להגדיר תזכורת נוספת לפני שקיעה\n\n"
-            f"הבוט מוכן לפעולה! 🚀",
+            (
+                f"מעולה! ✅\n"
+                f"תזכורת יומית נקבעה לשעה {time_str}.\n\n"
+                f"📅 תקבל תזכורת כל יום (חוץ משבת וחגים)\n"
+                f"🔔 אפשר להגדיר תזכורת נוספת לפני שקיעה\n\n"
+                f"הבוט מוכן לפעולה! 🚀"
+            ),
             reply_markup=reply_markup,
         )
 
@@ -298,7 +304,9 @@ class TefillinBot:
         # בדיקה שלא סומן כבר היום
         last_done = user.get("last_done")
         if last_done == today:
-            await query.edit_message_text("כבר סימנת שהנחת תפילין היום! ✅\nהמשך יום מעולה! 🙏")
+            await query.edit_message_text(
+                "כבר סימנת שהנחת תפילין היום! ✅\nהמשך יום מעולה! 🙏"
+            )
             return
 
         # עדכון רצף
@@ -583,7 +591,9 @@ class TefillinBot:
                 logger.warning("Leader lock is held by another instance. Standing by without polling.")
                 raise RuntimeError("Not leader - another instance is running")
         else:
-            logger.warning("Leader lock disabled via env. Starting without distributed lock " "(temporary recovery mode).")
+            logger.warning(
+                "Leader lock disabled via env. Starting without distributed lock (temporary recovery mode)."
+            )
 
         # בדיקת חיבור למסד נתונים
         try:

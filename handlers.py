@@ -85,7 +85,7 @@ class TefillinHandlers:
         sunset_time = self.hebrew_times.get_sunset_time(today)
 
         if not sunset_time:
-            await query.edit_message_text("מצטער, לא הצלחתי לחשב זמן שקיעה היום.\n" "נסה דחייה רגילה.")
+            await query.edit_message_text("מצטער, לא הצלחתי לחשב זמן שקיעה היום.\nנסה דחייה רגילה.")
             return
 
         # חישוב זמן לתזכורת (30 דקות לפני שקיעה)
@@ -94,7 +94,7 @@ class TefillinHandlers:
         now = datetime.now()
 
         if reminder_time <= now:
-            await query.edit_message_text("השקיעה קרובה מדי.\n" "בחר דחייה אחרת.")
+            await query.edit_message_text("השקיעה קרובה מדי.\nבחר דחייה אחרת.")
             return
 
         minutes_until_reminder = int((reminder_time - now).total_seconds() / 60)
@@ -103,7 +103,9 @@ class TefillinHandlers:
         sunset_str = sunset_time.strftime("%H:%M")
         reminder_str = reminder_time.strftime("%H:%M")
 
-        await query.edit_message_text(f"מעולה! 🌇\n" f"אזכיר ב-{reminder_str} (30 דק' לפני השקיעה ב-{sunset_str})")
+        await query.edit_message_text(
+            f"מעולה! 🌇\נאזכיר ב-{reminder_str} (30 דק' לפני השקיעה ב-{sunset_str})"
+        )
 
     async def handle_settings_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """טיפול בהגדרות"""
@@ -166,7 +168,8 @@ class TefillinHandlers:
         status_text = "כבוי" if current_setting == 0 else f"{current_setting} דקות לפני שקיעה"
 
         await query.edit_message_text(
-            f"תזכורת לפני שקיעה\n" f"מצב נוכחי: {status_text}\n\n" f"בחר הגדרה חדשה:", reply_markup=reply_markup
+            f"תזכורת לפני שקיעה\nמצב נוכחי: {status_text}\n\nבחר הגדרה חדשה:",
+            reply_markup=reply_markup,
         )
 
     async def handle_sunset_setting(self, query, user_id: int, data: str):
@@ -273,7 +276,7 @@ class TefillinHandlers:
         # סימון שדולג היום
         self.users_collection.update_one({"user_id": user_id}, {"$set": {"skipped_date": today}})
 
-        await query.edit_message_text("הבנתי. לא אזכיר יותר היום.\n" "נתראה מחר! 👋")
+        await query.edit_message_text("הבנתי. לא אזכיר יותר היום.\ננתראה מחר! 👋")
 
     def get_conversation_handler(self):
         """יצירת ConversationHandler לזמן מותאם אישית"""
