@@ -85,9 +85,7 @@ class TestTefillinHandlers:
         return context
 
     @pytest.mark.asyncio
-    async def test_handle_snooze_callback_regular(
-        self, handlers, mock_update, mock_context
-    ):
+    async def test_handle_snooze_callback_regular(self, handlers, mock_update, mock_context):
         """Test handling regular snooze callback"""
         mock_update.callback_query.data = "snooze_30"
 
@@ -102,9 +100,7 @@ class TestTefillinHandlers:
         assert "30 דקות" in call_args[0][0]
 
     @pytest.mark.asyncio
-    async def test_handle_snooze_callback_custom(
-        self, handlers, mock_update, mock_context
-    ):
+    async def test_handle_snooze_callback_custom(self, handlers, mock_update, mock_context):
         """Test handling custom snooze callback"""
         mock_update.callback_query.data = "snooze_custom"
 
@@ -118,17 +114,13 @@ class TestTefillinHandlers:
         assert "בחר דחייה:" in call_args[0][0]
 
     @pytest.mark.asyncio
-    async def test_handle_custom_time_input_valid(
-        self, handlers, mock_update, mock_context, mock_db_client
-    ):
+    async def test_handle_custom_time_input_valid(self, handlers, mock_update, mock_context, mock_db_client):
         """Test handling valid custom time input"""
         mock_update.message.text = "09:30"
         mock_context.user_data = {"awaiting_custom_time": True}
 
         # Mock database update
-        mock_db_client.tefillin_bot.users.update_one.return_value = Mock(
-            modified_count=1
-        )
+        mock_db_client.tefillin_bot.users.update_one.return_value = Mock(modified_count=1)
 
         result = await handlers.handle_custom_time_input(mock_update, mock_context)
 
@@ -137,9 +129,7 @@ class TestTefillinHandlers:
         assert "09:30" in mock_update.message.reply_text.call_args[0][0]
 
     @pytest.mark.asyncio
-    async def test_handle_custom_time_input_invalid(
-        self, handlers, mock_update, mock_context
-    ):
+    async def test_handle_custom_time_input_invalid(self, handlers, mock_update, mock_context):
         """Test handling invalid custom time input"""
         mock_update.message.text = "25:99"
         mock_context.user_data = {"awaiting_custom_time": True}

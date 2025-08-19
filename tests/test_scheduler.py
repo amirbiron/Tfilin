@@ -39,9 +39,7 @@ class TestTefillinScheduler:
     @pytest.fixture
     def scheduler(self, mock_bot_app, mock_db_client):
         """Create a TefillinScheduler instance with mocks"""
-        with patch(
-            "apscheduler.schedulers.background.BackgroundScheduler"
-        ) as mock_scheduler_class:
+        with patch("apscheduler.schedulers.background.BackgroundScheduler") as mock_scheduler_class:
             mock_scheduler_instance = Mock()
             mock_scheduler_instance.start = Mock()
             mock_scheduler_instance.shutdown = Mock()
@@ -69,9 +67,7 @@ class TestTefillinScheduler:
         scheduler.scheduler.shutdown.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_check_daily_reminders(
-        self, scheduler, mock_db_client, mock_bot_app
-    ):
+    async def test_check_daily_reminders(self, scheduler, mock_db_client, mock_bot_app):
         """Test checking and sending daily reminders"""
         # Setup current time
         current_time = datetime.now().strftime("%H:%M")
@@ -102,9 +98,7 @@ class TestTefillinScheduler:
         assert mock_bot_app.bot.send_message.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_check_daily_reminders_skip(
-        self, scheduler, mock_db_client, mock_bot_app
-    ):
+    async def test_check_daily_reminders_skip(self, scheduler, mock_db_client, mock_bot_app):
         """Test skipping daily reminder when skip_next is True"""
         current_time = datetime.now().strftime("%H:%M")
 
