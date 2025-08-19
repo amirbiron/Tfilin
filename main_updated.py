@@ -220,7 +220,12 @@ class TefillinBot:
                 await self.handle_take_selfie(query)
             elif data == "show_help":
                 # שליחת טקסט העזרה כמו ב-/help
-                await self.help_command(type("U", (), {"message": query.message, "effective_user": update.effective_user})(), context)
+                dummy_update = type(
+                    "U",
+                    (),
+                    {"message": query.message, "effective_user": update.effective_user},
+                )()
+                await self.help_command(dummy_update, context)
             elif data == "back_to_menu":
                 user = self.db_manager.get_user(user_id)
                 await self.show_main_menu(query.message, user)
