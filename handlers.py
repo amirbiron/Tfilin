@@ -1,10 +1,17 @@
 import logging
+import os
 from datetime import datetime, time, timedelta
 
 from pymongo import MongoClient
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, WebAppInfo, Update
-from telegram.ext import ContextTypes, ConversationHandler, CallbackQueryHandler
-import os
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    Update,
+    WebAppInfo,
+)
+from telegram.ext import CallbackQueryHandler, ContextTypes, ConversationHandler
 
 from config import Config
 from hebrew_times import HebrewTimes

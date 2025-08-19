@@ -428,6 +428,35 @@ class TefillinBot:
                 await update.message.reply_text("פתח את המצלמה מתוך Telegram:", reply_markup=keyboard)
                 return
 
+            if text == "🕐 שינוי שעה":
+                await self.handlers.show_time_selection(type("Q", (), {"edit_message_text": update.message.reply_text})())
+                return
+
+            if text == "🌇 תזכורת שקיעה":
+                await self.handlers.show_sunset_settings(
+                    type("Q", (), {"edit_message_text": update.message.reply_text})(), user_id
+                )
+                return
+
+            if text == "📊 סטטיסטיקות":
+                await self.stats_command(update, context)
+                return
+
+            if text == "⚙️ הגדרות":
+                await self.settings_command(update, context)
+                return
+
+            # ברירת מחדל: זיהוי שעה ידנית
+            if validate_time_input(text):
+                await update.message.reply_text(
+                    f"נראה שרצית לקבוע שעה: {text}\nהשתמש ב-/settings כדי לשנות את השעה היומית."
+                )
+            else:
+                await update.message.reply_text("שלום! 👋\nהשתמש ב-/menu או ב-/help לעזרה.")
+        except Exception as e:
+            logger.error(f"Error in text handler: {e}")
+            await update.message.reply_text("אירעה שגיאה, נסה שוב.")
+
     async def handle_web_app_data(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """קליטת נתונים מ-WebApp (למשל תמונה ממצלמה) ושליחתם לצ'אט."""
         try:
@@ -450,33 +479,6 @@ class TefillinBot:
                 await update.effective_message.reply_text("שגיאה בעיבוד התמונה שנשלחה מהמצלמה.")
             except Exception:
                 pass
-
-            if text == "🕐 שינוי שעה":
-                await self.handlers.show_time_selection(type("Q", (), {"edit_message_text": update.message.reply_text})())
-                return
-
-            if text == "🌇 תזכורת שקיעה":
-                await self.handlers.show_sunset_settings(
-                    type("Q", (), {"edit_message_text": update.message.reply_text})(), user_id
-                )
-                return
-
-            if text == "📊 סטטיסטיקות":
-                await self.stats_command(update, context)
-                return
-
-            if text == "⚙️ הגדרות":
-                await self.settings_command(update, context)
-                return
-
-            # ברירת מחדל: זיהוי שעה ידנית
-            if validate_time_input(text):
-                await update.message.reply_text(f"נראה שרצית לקבוע שעה: {text}\nהשתמש ב-/settings כדי לשנות את השעה היומית.")
-            else:
-                await update.message.reply_text("שלום! 👋\nהשתמש ב-/menu או ב-/help לעזרה.")
-        except Exception as e:
-            logger.error(f"Error in text handler: {e}")
-            await update.message.reply_text("אירעה שגיאה, נסה שוב.")
 
     async def settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """פקודת הגדרות מפורטת"""
