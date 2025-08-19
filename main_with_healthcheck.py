@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os
-import sys
-import logging
 import asyncio
-from threading import Thread
-from flask import Flask, jsonify
-from datetime import datetime
+import logging
+import os
 import signal
+import sys
+from datetime import datetime
+from threading import Thread
+
+from flask import Flask, jsonify
 
 # Import the original bot
 from main_updated import TefillinBot

@@ -1,8 +1,10 @@
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, Dict, List, Any
-from pymongo import MongoClient, ASCENDING, DESCENDING
-from pymongo.errors import DuplicateKeyError, ConnectionFailure
+from typing import Any, Dict, List, Optional
+
+from pymongo import ASCENDING, DESCENDING, MongoClient
+from pymongo.errors import ConnectionFailure, DuplicateKeyError
+
 from config import Config
 
 logger = logging.getLogger(__name__)

@@ -5,14 +5,15 @@ Simple health check server with integrated Telegram bot
 Designed specifically for Render deployment
 """
 
-import os
-import sys
 import logging
+import os
 import signal
+import sys
 import time
-from threading import Thread, Event
-from flask import Flask, jsonify
 from datetime import datetime
+from threading import Event, Thread
+
+from flask import Flask, jsonify
 
 # Configure logging
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)

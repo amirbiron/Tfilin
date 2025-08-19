@@ -1,10 +1,12 @@
 import logging
 from datetime import datetime, time, timedelta
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from pytz import timezone
 from pymongo import MongoClient
+from pytz import timezone
 from telegram.ext import Application
+
 from config import Config
 from hebrew_times import HebrewTimes
 

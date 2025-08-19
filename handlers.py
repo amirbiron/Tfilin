@@ -1,8 +1,10 @@
 import logging
-from datetime import datetime, timedelta, time
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes, ConversationHandler
+from datetime import datetime, time, timedelta
+
 from pymongo import MongoClient
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import ContextTypes, ConversationHandler
+
 from config import Config
 from hebrew_times import HebrewTimes
 
@@ -264,7 +266,7 @@ class TefillinHandlers:
 
     def get_conversation_handler(self):
         """יצירת ConversationHandler לזמן מותאם אישית"""
-        from telegram.ext import MessageHandler, filters, CommandHandler, CallbackQueryHandler
+        from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, filters
 
         return ConversationHandler(
             entry_points=[CallbackQueryHandler(self.handle_custom_time_callback, pattern="time_custom")],

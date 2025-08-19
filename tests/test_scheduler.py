@@ -1,11 +1,12 @@
 """Tests for scheduler module"""
 
-import pytest
 import asyncio
-from datetime import datetime, time, timedelta
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
-import sys
 import os
+import sys
+from datetime import datetime, time, timedelta
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+
+import pytest
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

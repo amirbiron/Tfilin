@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 
 # טעינת משתני סביבה מקובץ .env (לפיתוח מקומי)
