@@ -123,7 +123,8 @@ def main():
     
     # Wait a bit for bot to initialize
     logger.info("Waiting for bot to initialize...")
-    asyncio.run(asyncio.sleep(3))
+    import time
+    time.sleep(3)
     
     # Get port from environment or use default
     port = int(os.environ.get('PORT', 10000))

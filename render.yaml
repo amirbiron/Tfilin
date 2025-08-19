@@ -28,7 +28,7 @@ services:
     
     # פקודות
     buildCommand: ""  # Docker יטפל בבנייה
-    startCommand: "python main_with_healthcheck.py"
+    startCommand: "/app/start.sh"  # משתמש בסקריפט ההפעלה
     
     # בדיקות תקינות
     healthCheckPath: "/health"  # Health check endpoint
