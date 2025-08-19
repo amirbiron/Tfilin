@@ -64,8 +64,8 @@ class TefillinBot:
         # פקודות בסיסיות
         self.app.add_handler(CommandHandler("start", self.start_command))
         self.app.add_handler(CommandHandler("menu", self.menu_command))
-        # פקודות מדריכות מפוילות ל-inline כדי למנוע קריסה אם חסרות פונקציות
-        self.app.add_handler(CommandHandler("settings", lambda u, c: self.handlers.handle_settings_callback(u, c)))
+        # פקודות
+        self.app.add_handler(CommandHandler("settings", self.settings_command))
         self.app.add_handler(CommandHandler("stats", lambda u, c: self.stats_command(u, c)))
         self.app.add_handler(CommandHandler("help", lambda u, c: self.help_command(u, c)))
         self.app.add_handler(CommandHandler("skip", lambda u, c: self.skip_today_command(u, c)))
@@ -147,7 +147,9 @@ class TefillinBot:
                 f"🔥 רצף: {streak} ימים\n\n"
             )
 
-        await message.reply_text(header, reply_markup=reply_keyboard)
+        # ודא שהטקסט לא ריק כדי לא לשבור שליחת הודעה
+        text_for_reply_keyboard = header if header.strip() else "\u00A0"
+        await message.reply_text(text_for_reply_keyboard, reply_markup=reply_keyboard)
         await message.reply_text("תפריט פעולות:", reply_markup=inline_keyboard)
 
     async def show_time_selection_for_new_user(self, update, user_name):
@@ -189,6 +191,8 @@ class TefillinBot:
         user_id = query.from_user.id
 
         try:
+            # תשובה מהירה כדי למנוע "טוען..." אינסופי בכפתור
+            await query.answer()
             if data.startswith("time_"):
                 await self.handle_time_selection(query, user_id, data)
             elif data == "tefillin_done":
@@ -255,7 +259,7 @@ class TefillinBot:
             [InlineKeyboardButton("🌇 הגדרת תזכורת שקיעה", callback_data="sunset_settings")],
             [
                 InlineKeyboardButton("קריאת שמע 📖", callback_data="show_shema"),
-                InlineKeyboardButton("צלם תמונה 📸", url=camera_url),
+                InlineKeyboardButton("צלם תמונה 📸", web_app=WebAppInfo(camera_url)),
             ],
             # הוסר כפתור "הגדרות נוספות"
             [InlineKeyboardButton("⬅️ חזור", callback_data="back_to_menu")],
