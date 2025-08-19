@@ -5,7 +5,14 @@ from datetime import datetime, timedelta
 import uuid
 
 from pymongo import MongoClient
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, WebAppInfo
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    Update,
+    WebAppInfo,
+)
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
 from telegram.error import Conflict
 
@@ -93,26 +100,41 @@ class TefillinBot:
         await self.show_main_menu(update.message, user)
 
     async def show_main_menu(self, message, user, greeting: str | None = None):
-        """הצגת תפריט ראשי עם כפתורי פעולה"""
+        """הצגת תפריט ראשי עם כפתורי פעולה בתחתית ההקלדה (ReplyKeyboard)"""
         base_url = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:10000"
         camera_url = f"{base_url.rstrip('/')}/camera?chat_id={message.chat_id}"
 
-        keyboard = [
-            [InlineKeyboardButton("הנחתי ✅", callback_data="tefillin_done")],
+        # ReplyKeyboard בתחתית שורת ההקלדה
+        reply_keyboard = ReplyKeyboardMarkup(
             [
-                InlineKeyboardButton("קריאת שמע 📖", callback_data="show_shema"),
-                InlineKeyboardButton("צלם תמונה 📸", web_app=WebAppInfo(camera_url)),
+                [KeyboardButton("הנחתי ✅")],
+                [KeyboardButton("קריאת שמע 📖"), KeyboardButton("צלם תמונה 📸")],
+                [KeyboardButton("🕐 שינוי שעה"), KeyboardButton("🌇 תזכורת שקיעה")],
+                [KeyboardButton("📊 סטטיסטיקות"), KeyboardButton("⚙️ הגדרות")],
             ],
+            resize_keyboard=True,
+            one_time_keyboard=False,
+            selective=False,
+        )
+
+        # InlineKeyboard עם פעולות (כולל WebApp למצלמה)
+        inline_keyboard = InlineKeyboardMarkup(
             [
-                InlineKeyboardButton("🕐 שינוי שעה", callback_data="change_time"),
-                InlineKeyboardButton("🌇 תזכורת שקיעה", callback_data="sunset_settings"),
-            ],
-            [
-                InlineKeyboardButton("📊 סטטיסטיקות", callback_data="stats"),
-                InlineKeyboardButton("⚙️ הגדרות", callback_data="show_settings"),
-            ],
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+                [InlineKeyboardButton("הנחתי ✅", callback_data="tefillin_done")],
+                [
+                    InlineKeyboardButton("קריאת שמע 📖", callback_data="show_shema"),
+                    InlineKeyboardButton("צלם תמונה 📸", web_app=WebAppInfo(camera_url)),
+                ],
+                [
+                    InlineKeyboardButton("🕐 שינוי שעה", callback_data="change_time"),
+                    InlineKeyboardButton("🌇 תזכורת שקיעה", callback_data="sunset_settings"),
+                ],
+                [
+                    InlineKeyboardButton("📊 סטטיסטיקות", callback_data="stats"),
+                    InlineKeyboardButton("⚙️ הגדרות", callback_data="show_settings"),
+                ],
+            ]
+        )
 
         header = ""
         if greeting is not None:
@@ -124,9 +146,9 @@ class TefillinBot:
                 f"🔥 רצף: {streak} ימים\n\n"
             )
 
-        await message.reply_text(
-            header + "מה תרצה לעשות עכשיו?", reply_markup=reply_markup
-        )
+        await message.reply_text(header + "מה תרצה לעשות עכשיו?", reply_markup=reply_keyboard)
+        # שליחת ההודעה עם inline כדי לאפשר פעולות מתקדמות במידת הצורך
+        await message.reply_text("או בחר פעולה מהתפריט שלמטה:", reply_markup=inline_keyboard)
 
     async def show_time_selection_for_new_user(self, update, user_name):
         """הצגת בחירת שעה למשתמש חדש"""
@@ -183,6 +205,9 @@ class TefillinBot:
                 await self.handle_show_shema(query)
             elif data == "take_selfie":
                 await self.handle_take_selfie(query)
+            elif data == "back_to_menu":
+                user = self.db_manager.get_user(user_id)
+                await self.show_main_menu(query.message, user)
             else:
                 await query.answer("פעולה לא מזוהה")
 
@@ -224,6 +249,7 @@ class TefillinBot:
                 InlineKeyboardButton("צלם תמונה 📸", web_app=WebAppInfo(camera_url)),
             ],
             [InlineKeyboardButton("⚙️ הגדרות נוספות", callback_data="show_settings")],
+            [InlineKeyboardButton("⬅️ חזור", callback_data="back_to_menu")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -304,7 +330,8 @@ class TefillinBot:
 
 🙏 יהי רצון שתהיה קריאתך מקובלת לפני הקב"ה"""
 
-        await query.edit_message_text(shema_text, parse_mode="Markdown")
+        keyboard = [[InlineKeyboardButton("⬅️ חזור", callback_data="back_to_menu")]]
+        await query.edit_message_text(shema_text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
 
     async def handle_take_selfie(self, query):
         """פתיחת מצלמה באמצעות Web App"""
@@ -318,7 +345,7 @@ class TefillinBot:
 
         keyboard = [
             [InlineKeyboardButton("פתח מצלמה 📷", web_app=WebAppInfo(camera_url))],
-            [InlineKeyboardButton("חזרה לתפריט ⬅️", callback_data="tefillin_done")],
+            [InlineKeyboardButton("⬅️ חזור", callback_data="back_to_menu")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 

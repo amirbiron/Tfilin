@@ -130,6 +130,7 @@ class TefillinHandlers:
                 InlineKeyboardButton("09:00", callback_data="time_09:00"),
             ],
             [InlineKeyboardButton("שעה אחרת...", callback_data="time_custom")],
+            [InlineKeyboardButton("⬅️ חזור", callback_data="back_to_menu")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -150,6 +151,7 @@ class TefillinHandlers:
                 InlineKeyboardButton("60 דק' לפני", callback_data="sunset_60"),
                 InlineKeyboardButton("90 דק' לפני", callback_data="sunset_90"),
             ],
+            [InlineKeyboardButton("⬅️ חזור", callback_data="back_to_menu")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
