@@ -144,13 +144,16 @@ class TefillinScheduler:
 
     async def send_daily_reminder(self, user_id: int):
         """שליחת תזכורת יומית"""
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
         keyboard = [
             [InlineKeyboardButton("הנחתי ✅", callback_data="tefillin_done")],
             [
                 InlineKeyboardButton("קריאת שמע 📖", callback_data="show_shema"),
-                InlineKeyboardButton("צלם תמונה 📸", callback_data="take_selfie"),
+                InlineKeyboardButton(
+                    "צלם תמונה 📸",
+                    web_app=WebAppInfo(url=f"{Config.WEBAPP_BASE_URL}/webapp/camera")
+                ),
             ],
             [
                 InlineKeyboardButton("נודניק 1ש'", callback_data="snooze_60"),
@@ -178,13 +181,16 @@ class TefillinScheduler:
 
     async def send_sunset_reminder(self, user_id: int, sunset_time: time):
         """שליחת תזכורת לפני שקיעה"""
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
         keyboard = [
             [InlineKeyboardButton("הנחתי ✅", callback_data="tefillin_done")],
             [
                 InlineKeyboardButton("קריאת שמע 📖", callback_data="show_shema"),
-                InlineKeyboardButton("צלם תמונה 📸", callback_data="take_selfie"),
+                InlineKeyboardButton(
+                    "צלם תמונה 📸",
+                    web_app=WebAppInfo(url=f"{Config.WEBAPP_BASE_URL}/webapp/camera")
+                ),
             ],
             [
                 InlineKeyboardButton("דחה 15 דק'", callback_data="snooze_15"),
@@ -219,13 +225,16 @@ class TefillinScheduler:
 
     async def send_snooze_reminder(self, user_id: int):
         """שליחת תזכורת נודניק"""
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
         keyboard = [
             [InlineKeyboardButton("הנחתי ✅", callback_data="tefillin_done")],
             [
                 InlineKeyboardButton("קריאת שמע 📖", callback_data="show_shema"),
-                InlineKeyboardButton("צלם תמונה 📸", callback_data="take_selfie"),
+                InlineKeyboardButton(
+                    "צלם תמונה 📸",
+                    web_app=WebAppInfo(url=f"{Config.WEBAPP_BASE_URL}/webapp/camera")
+                ),
             ],
             [
                 InlineKeyboardButton("עוד נודניק 1ש'", callback_data="snooze_60"),
