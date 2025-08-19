@@ -51,12 +51,12 @@ class TestTefillinHandlers:
         update.effective_user.id = 123456
         update.effective_user.first_name = "Test"
         update.effective_user.username = "testuser"
-        
+
         update.message = Mock(spec=Message)
         update.message.chat = Mock(spec=Chat)
         update.message.chat.id = 123456
         update.message.reply_text = AsyncMock()
-        
+
         # Create proper callback_query mock
         update.callback_query = Mock(spec=CallbackQuery)
         update.callback_query.from_user = update.effective_user
@@ -64,7 +64,7 @@ class TestTefillinHandlers:
         update.callback_query.answer = AsyncMock()
         update.callback_query.edit_message_text = AsyncMock()
         update.callback_query.message = update.message
-        
+
         return update
 
     @pytest.fixture
@@ -80,12 +80,12 @@ class TestTefillinHandlers:
     async def test_handle_snooze_callback_regular(self, handlers, mock_update, mock_context):
         """Test handling regular snooze callback"""
         mock_update.callback_query.data = "snooze_30"
-        
+
         await handlers.handle_snooze_callback(mock_update, mock_context)
-        
+
         # Check that answer was called (without arguments)
         mock_update.callback_query.answer.assert_called_once_with()
-        
+
         # Check that the message was edited with the correct text
         mock_update.callback_query.edit_message_text.assert_called_once()
         call_args = mock_update.callback_query.edit_message_text.call_args
@@ -95,12 +95,12 @@ class TestTefillinHandlers:
     async def test_handle_snooze_callback_custom(self, handlers, mock_update, mock_context):
         """Test handling custom snooze callback"""
         mock_update.callback_query.data = "snooze_custom"
-        
+
         await handlers.handle_snooze_callback(mock_update, mock_context)
-        
+
         mock_update.callback_query.answer.assert_called_once_with()
         mock_update.callback_query.edit_message_text.assert_called_once()
-        
+
         # Check that custom snooze options are shown
         call_args = mock_update.callback_query.edit_message_text.call_args
         assert "בחר דחייה:" in call_args[0][0]
@@ -109,21 +109,19 @@ class TestTefillinHandlers:
     async def test_handle_snooze_callback_sunset(self, handlers, mock_update, mock_context, mock_db_client):
         """Test handling snooze until sunset callback"""
         mock_update.callback_query.data = "snooze_sunset"
-        
+
         # Mock database response
         mock_db_client.tefillin_bot.users.find_one.return_value = {
             "user_id": 123456,
-            "location": {"lat": 31.7683, "lng": 35.2137}
+            "location": {"lat": 31.7683, "lng": 35.2137},
         }
-        
+
         # Mock hebrew_times module
         with patch("handlers.hebrew_times") as mock_hebrew_times:
-            mock_hebrew_times.get_hebrew_times.return_value = {
-                "sunset": time(18, 30)
-            }
-            
+            mock_hebrew_times.get_hebrew_times.return_value = {"sunset": time(18, 30)}
+
             await handlers.handle_snooze_callback(mock_update, mock_context)
-            
+
             mock_update.callback_query.answer.assert_called_once_with()
             mock_update.callback_query.edit_message_text.assert_called_once()
 
@@ -131,12 +129,12 @@ class TestTefillinHandlers:
     async def test_handle_settings_callback_time(self, handlers, mock_update, mock_context):
         """Test handling time settings callback"""
         mock_update.callback_query.data = "settings_time"
-        
+
         await handlers.handle_settings_callback(mock_update, mock_context)
-        
+
         mock_update.callback_query.answer.assert_called_once_with()
         mock_update.callback_query.edit_message_text.assert_called_once()
-        
+
         # Check that time selection is shown
         call_args = mock_update.callback_query.edit_message_text.call_args
         assert "בחר שעה" in call_args[0][0]
@@ -145,15 +143,12 @@ class TestTefillinHandlers:
     async def test_handle_settings_callback_sunset(self, handlers, mock_update, mock_context, mock_db_client):
         """Test handling sunset settings callback"""
         mock_update.callback_query.data = "settings_sunset"
-        
+
         # Mock database response
-        mock_db_client.tefillin_bot.users.find_one.return_value = {
-            "user_id": 123456,
-            "sunset_reminder": 0
-        }
-        
+        mock_db_client.tefillin_bot.users.find_one.return_value = {"user_id": 123456, "sunset_reminder": 0}
+
         await handlers.handle_settings_callback(mock_update, mock_context)
-        
+
         mock_update.callback_query.answer.assert_called_once_with()
         mock_update.callback_query.edit_message_text.assert_called_once()
 
@@ -161,7 +156,7 @@ class TestTefillinHandlers:
     async def test_handle_settings_callback_stats(self, handlers, mock_update, mock_context, mock_db_client):
         """Test handling stats callback"""
         mock_update.callback_query.data = "settings_stats"
-        
+
         # Mock database response
         mock_db_client.tefillin_bot.users.find_one.return_value = {
             "user_id": 123456,
@@ -169,14 +164,14 @@ class TestTefillinHandlers:
             "daily_time": "08:00",
             "created_at": datetime.now(),
             "total_reminders_sent": 10,
-            "last_reminder_sent": datetime.now()
+            "last_reminder_sent": datetime.now(),
         }
-        
+
         await handlers.handle_settings_callback(mock_update, mock_context)
-        
+
         mock_update.callback_query.answer.assert_called_once_with()
         mock_update.callback_query.edit_message_text.assert_called_once()
-        
+
         # Check that stats are shown
         call_args = mock_update.callback_query.edit_message_text.call_args
         assert "📊" in call_args[0][0]
@@ -186,12 +181,12 @@ class TestTefillinHandlers:
         """Test handling valid custom time input"""
         mock_update.message.text = "09:30"
         mock_context.user_data = {"awaiting_custom_time": True}
-        
+
         # Mock database update
         mock_db_client.tefillin_bot.users.update_one.return_value = Mock(modified_count=1)
-        
+
         result = await handlers.handle_custom_time_input(mock_update, mock_context)
-        
+
         assert result == -1  # ConversationHandler.END
         mock_update.message.reply_text.assert_called()
         assert "09:30" in mock_update.message.reply_text.call_args[0][0]
@@ -201,9 +196,9 @@ class TestTefillinHandlers:
         """Test handling invalid custom time input"""
         mock_update.message.text = "25:99"
         mock_context.user_data = {"awaiting_custom_time": True}
-        
+
         result = await handlers.handle_custom_time_input(mock_update, mock_context)
-        
+
         assert result == 0  # Stay in same state
         mock_update.message.reply_text.assert_called()
         assert "פורמט" in mock_update.message.reply_text.call_args[0][0]
@@ -212,7 +207,7 @@ class TestTefillinHandlers:
     async def test_cancel_conversation(self, handlers, mock_update, mock_context):
         """Test canceling conversation"""
         result = await handlers.cancel_conversation(mock_update, mock_context)
-        
+
         assert result == -1  # ConversationHandler.END
         mock_update.message.reply_text.assert_called()
 
@@ -221,9 +216,9 @@ class TestTefillinHandlers:
         """Test handling skip today command"""
         # Mock database update
         mock_db_client.tefillin_bot.users.update_one.return_value = Mock(modified_count=1)
-        
+
         await handlers.handle_skip_today(mock_update, mock_context)
-        
+
         mock_update.message.reply_text.assert_called()
         # Check the actual message content
         call_args = mock_update.message.reply_text.call_args
@@ -232,7 +227,7 @@ class TestTefillinHandlers:
     def test_get_conversation_handler(self, handlers):
         """Test getting conversation handler"""
         conv_handler = handlers.get_conversation_handler()
-        
+
         assert conv_handler is not None
         assert len(conv_handler.entry_points) > 0
         assert len(conv_handler.states) > 0
@@ -243,9 +238,9 @@ class TestTefillinHandlers:
         """Test handling custom time callback"""
         mock_update.callback_query.data = "custom_time"
         mock_context.user_data = {}
-        
+
         result = await handlers.handle_custom_time_callback(mock_update, mock_context)
-        
+
         assert result == 0  # AWAITING_TIME state
         assert "awaiting_custom_time" in mock_context.user_data
         mock_update.callback_query.edit_message_text.assert_called_once()
