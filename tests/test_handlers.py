@@ -32,7 +32,11 @@ class TestTefillinHandlers:
     @pytest.fixture
     def mock_scheduler(self):
         """Create a mock scheduler"""
-        return Mock()
+        scheduler = Mock()
+        scheduler.schedule_snooze_reminder = AsyncMock()
+        scheduler.send_daily_reminder = AsyncMock()
+        scheduler.send_sunset_reminder = AsyncMock()
+        return scheduler
 
     @pytest.fixture
     def handlers(self, mock_db_client, mock_scheduler):
