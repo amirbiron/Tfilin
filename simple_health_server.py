@@ -6,6 +6,7 @@ Designed specifically for Render deployment
 """
 
 import logging
+import asyncio
 import os
 import signal
 import sys
@@ -59,6 +60,13 @@ def run_telegram_bot():
     while retry_count < max_retries and not shutdown_event.is_set():
         try:
             logger.info(f"Starting Telegram bot (attempt {retry_count + 1}/{max_retries})...")
+
+            # Ensure an event loop exists in this thread (Python 3.11+ doesn't create one by default)
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
 
             # Import here to avoid circular imports
             from main_updated import TefillinBot
