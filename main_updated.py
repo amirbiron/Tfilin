@@ -424,7 +424,7 @@ class TefillinBot:
             except Exception:
                 pass
 
-    async def startup(self):
+    async def startup(self, application):
         """פעולות אתחול"""
         logger.info("Starting Tefillin Bot...")
         
@@ -444,7 +444,7 @@ class TefillinBot:
         
         logger.info("Bot startup completed successfully")
 
-    async def shutdown(self):
+    async def shutdown(self, application):
         """פעולות סגירה"""
         logger.info("Shutting down Tefillin Bot...")
         
