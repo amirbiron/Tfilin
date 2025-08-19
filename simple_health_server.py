@@ -119,13 +119,9 @@ def main():
     # Get port from environment
     port = int(os.environ.get("PORT", 10000))
 
-    # Start bot in background thread
+    # Start bot in background thread (do not delay HTTP server startup)
     bot_thread = Thread(target=run_telegram_bot, daemon=True)
     bot_thread.start()
-
-    # Give bot time to initialize
-    logger.info("Waiting for bot initialization...")
-    time.sleep(5)
 
     # Start Flask server (this blocks)
     logger.info(f"Starting health check server on port {port}...")
