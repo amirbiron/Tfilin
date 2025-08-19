@@ -47,6 +47,9 @@ class TefillinBot:
 
         # יצירת אפליקציית בוט
         self.app = Application.builder().token(Config.BOT_TOKEN).build()
+        # חיבור פעולות אתחול/סגירה כך שיפעלו גם כאשר מפעילים run_polling ישירות
+        self.app.post_init = self.startup
+        self.app.post_shutdown = self.shutdown
 
         # יצירת מודולים
         self.scheduler = TefillinScheduler(self.app, self.db_client)
@@ -61,10 +64,11 @@ class TefillinBot:
         # פקודות בסיסיות
         self.app.add_handler(CommandHandler("start", self.start_command))
         self.app.add_handler(CommandHandler("menu", self.menu_command))
-        self.app.add_handler(CommandHandler("settings", self.settings_command))
-        self.app.add_handler(CommandHandler("stats", self.stats_command))
-        self.app.add_handler(CommandHandler("help", self.help_command))
-        self.app.add_handler(CommandHandler("skip", self.skip_today_command))
+        # פקודות מדריכות מפוילות ל-inline כדי למנוע קריסה אם חסרות פונקציות
+        self.app.add_handler(CommandHandler("settings", lambda u, c: self.handlers.handle_settings_callback(u, c)))
+        self.app.add_handler(CommandHandler("stats", lambda u, c: self.stats_command(u, c)))
+        self.app.add_handler(CommandHandler("help", lambda u, c: self.help_command(u, c)))
+        self.app.add_handler(CommandHandler("skip", lambda u, c: self.skip_today_command(u, c)))
 
         # Conversation handler לזמן מותאם אישית
         self.app.add_handler(self.handlers.get_conversation_handler())
@@ -350,3 +354,166 @@ class TefillinBot:
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         await query.edit_message_text(text, reply_markup=reply_markup)
+
+    async def settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """פקודת הגדרות מפורטת"""
+        user_id = update.effective_user.id
+        user = self.db_manager.get_user(user_id)
+
+        if not user:
+            await update.message.reply_text("לא נמצאת במערכת. הקש /start להרשמה.")
+            return
+
+        await self.show_main_settings(update.message, user)
+
+    async def show_main_settings(self, message, user):
+        """הצגת תפריט הגדרות ראשי"""
+        keyboard = [
+            [
+                InlineKeyboardButton("🕐 שינוי שעה", callback_data="change_time"),
+                InlineKeyboardButton("🌇 תזכורת שקיעה", callback_data="sunset_settings"),
+            ],
+            [
+                InlineKeyboardButton("📊 סטטיסטיקות", callback_data="stats"),
+                InlineKeyboardButton("ℹ️ עזרה", callback_data="show_help"),
+            ],
+            [InlineKeyboardButton("⬅️ חזור", callback_data="back_to_menu")],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        current_time = user.get("daily_time", "לא נקבע")
+        streak = user.get("streak", 0)
+        sunset_reminder = user.get("sunset_reminder", 0)
+        sunset_text = "כבוי" if sunset_reminder == 0 else f"{sunset_reminder} דק' לפני"
+
+        settings_text = (
+            f"⚙️ ההגדרות שלך:\n\n"
+            f"🕐 שעה יומית: {current_time}\n"
+            f"🌇 תזכורת שקיעה: {sunset_text}\n"
+            f"🔥 רצף נוכחי: {streak} ימים\n\n"
+            f"מה תרצה לשנות?"
+        )
+
+        await message.reply_text(settings_text, reply_markup=reply_markup)
+
+    async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """פקודת סטטיסטיקות מפורטת"""
+        user_id = update.effective_user.id
+        await self.handlers.show_user_stats(type("Query", (), {"edit_message_text": update.message.reply_text})(), user_id)
+
+    async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """פקודת עזרה"""
+        help_text = (
+            f"🤖 בוט תזכורות תפילין\n\n"
+            f"📋 פקודות זמינות:\n"
+            f"/start - הרשמה או חזרה לבוט\n"
+            f"/menu - תפריט ראשי\n"
+            f"/settings - הגדרות מתקדמות\n"
+            f"/stats - סטטיסטיקות מפורטות\n"
+            f"/skip - דלג על התזכורת היום\n"
+            f"/help - הצגת הודעה זו\n\n"
+            f"🔔 התזכורות:\n"
+            f"• תזכורת יומית בשעה שבחרת\n"
+            f"• תזכורת לפני שקיעה (אופציונלי)\n"
+            f"• לא שולח בשבת ובחגים\n\n"
+            f"⭐ תכונות:\n"
+            f"• מעקב רצף ימים\n"
+            f"• נודניק חכם\n"
+            f"• זמני שקיעה מדויקים\n"
+            f"• הגדרות אישיות\n\n"
+            f"💡 טיפ: אפשר תמיד לשנות הגדרות עם /settings"
+        )
+
+        await update.message.reply_text(help_text)
+
+    async def skip_today_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """פקודת דילוג על היום"""
+        user_id = update.effective_user.id
+        today = datetime.now().date().isoformat()
+
+        self.db_manager.update_user(user_id, {"skipped_date": today})
+
+        await update.message.reply_text("✅ דילגתי על התזכורת להיום.\n" "נתראה מחר עם תזכורת חדשה! 👋")
+
+    async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
+        """טיפול בשגיאות"""
+        if isinstance(getattr(context, "error", None), Conflict):
+            logger.warning("Conflict detected (409) – another polling process may be active. Ignoring temporarily.")
+            return
+        logger.error(f"Exception while handling an update: {context.error}")
+        if isinstance(update, Update) and update.effective_message:
+            try:
+                await update.effective_message.reply_text("מצטער, אירעה שגיאה. אנא נסה שוב מאוחר יותר.")
+            except Exception:
+                pass
+
+    async def startup(self, application):
+        """פעולות אתחול"""
+        logger.info("Starting Tefillin Bot...")
+
+        # ניסיון קבלת leader lock לפני תחילת polling
+        got_lock = self.db_manager.acquire_leader_lock(self.leader_owner_id, ttl_seconds=self.lock_ttl_seconds)
+        if not got_lock:
+            logger.warning("Leader lock is held by another instance. Standing by without polling.")
+            raise RuntimeError("Not leader - another instance is running")
+
+        # בדיקת חיבור למסד נתונים
+        try:
+            self.db_client.admin.command("ping")
+            logger.info("Database connection successful")
+        except Exception as e:
+            logger.error(f"Database connection failed: {e}")
+            raise
+
+        # התחלת הסקדיולר
+        self.scheduler.start()
+
+        # הפעלת משימת רענון לוק כדי לשמור בעלות
+        self._lock_refresh_task = asyncio.create_task(self._refresh_leader_lock_task())
+
+        # עדכון זמני שקיעה
+        await self.scheduler.update_daily_times()
+
+        logger.info("Bot startup completed successfully")
+
+    async def shutdown(self, application):
+        """פעולות סגירה"""
+        logger.info("Shutting down Tefillin Bot...")
+
+        # עצירת הסקדיולר
+        try:
+            if hasattr(self, "scheduler") and self.scheduler and self.scheduler.is_running():
+                self.scheduler.stop()
+        except Exception as e:
+            logger.warning(f"Scheduler stop skipped: {e}")
+
+        # עצירת משימת רענון הלוק
+        try:
+            if self._lock_refresh_task:
+                self._lock_refresh_task.cancel()
+        except Exception:
+            pass
+
+        # שחרור ה-leader lock
+        try:
+            self.db_manager.release_leader_lock(self.leader_owner_id)
+        except Exception:
+            pass
+
+        # סגירת חיבור למסד נתונים
+        self.db_client.close()
+
+        logger.info("Bot shutdown completed")
+
+    async def _refresh_leader_lock_task(self):
+        """משימה שומרת-חיים לרענון ה-leader lock באופן מחזורי"""
+        try:
+            while True:
+                await asyncio.sleep(max(5, self.lock_ttl_seconds // 2))
+                ok = self.db_manager.refresh_leader_lock(self.leader_owner_id, ttl_seconds=self.lock_ttl_seconds)
+                if not ok:
+                    logger.error("Lost leader lock. Stopping application to avoid duplicate polling.")
+                    await self.app.stop()
+                    break
+        except asyncio.CancelledError:
+            return
