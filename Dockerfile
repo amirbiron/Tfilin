@@ -32,12 +32,12 @@ USER tefillin
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
-# חשיפת פורט לhealth check endpoint
+# חשיפת פורט לhealth check endpoint (ברירת מחדל)
 EXPOSE 10000
 
-# בדיקת תקינות הקונטיינר
+# בדיקת תקינות הקונטיינר (משתמש ב-$PORT אם קיים)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:10000/health', timeout=5)" || exit 1
+    CMD sh -c 'PORT=${PORT:-10000}; curl -fsS http://localhost:${PORT}/health >/dev/null || exit 1'
 
 # פקודת הפעלה עם health check server
 CMD ["/app/start.sh"]

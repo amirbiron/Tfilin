@@ -17,6 +17,7 @@ class DatabaseManager:
         self.users_collection = self.db.users
         self.stats_collection = self.db.stats
         self.logs_collection = self.db.logs
+        self.locks_collection = self.db.locks
 
     def setup_database(self):
         """הגדרת מסד הנתונים ואינדקסים"""
@@ -42,11 +43,55 @@ class DatabaseManager:
             # אינדקס TTL ללוגים (מחיקה אוטומטית אחרי 30 יום)
             self.logs_collection.create_index([("timestamp", ASCENDING)], expireAfterSeconds=30 * 24 * 60 * 60)  # 30 יום
 
+            # אינדקסים ל-lock מבוזר למניעת ריבוי מופעים
+            # מזהה ייחודי לשם ה-lock, ו-TTL שמבוסס על שדה expireAt (נמחק כשהתאריך עובר)
+            self.locks_collection.create_index([("name", ASCENDING)], unique=True)
+            self.locks_collection.create_index([("expireAt", ASCENDING)], expireAfterSeconds=0)
+
             logger.info("Database indexes created successfully")
 
         except Exception as e:
             logger.error(f"Failed to setup database: {e}")
             raise
+
+    def acquire_leader_lock(self, owner_id: str, ttl_seconds: int = 60) -> bool:
+        """ניסיון לקבלת lock של מנהיג (leader). מחזיר True אם הצליח, אחרת False"""
+        try:
+            now = datetime.utcnow()
+            doc = {
+                "name": "bot_leader",
+                "ownerId": owner_id,
+                "expireAt": now + timedelta(seconds=ttl_seconds),
+                "updatedAt": now,
+            }
+            self.locks_collection.insert_one(doc)
+            return True
+        except DuplicateKeyError:
+            # כבר קיים lock פעיל
+            return False
+        except Exception as e:
+            logger.error(f"Failed to acquire leader lock: {e}")
+            return False
+
+    def refresh_leader_lock(self, owner_id: str, ttl_seconds: int = 60) -> bool:
+        """רענון ה-lock על ידי הארכת תוקף. מחזיר False אם אבד ה-lock"""
+        try:
+            now = datetime.utcnow()
+            result = self.locks_collection.update_one(
+                {"name": "bot_leader", "ownerId": owner_id},
+                {"$set": {"expireAt": now + timedelta(seconds=ttl_seconds), "updatedAt": now}},
+            )
+            return result.modified_count == 1
+        except Exception as e:
+            logger.error(f"Failed to refresh leader lock: {e}")
+            return False
+
+    def release_leader_lock(self, owner_id: str) -> None:
+        """שחרור ה-lock (אם בבעלות התהליך הנוכחי)"""
+        try:
+            self.locks_collection.delete_one({"name": "bot_leader", "ownerId": owner_id})
+        except Exception as e:
+            logger.error(f"Failed to release leader lock: {e}")
 
     def get_user(self, user_id: int) -> Optional[Dict]:
         """קבלת משתמש לפי ID"""
