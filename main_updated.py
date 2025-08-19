@@ -45,7 +45,10 @@ class TefillinBot:
         self.lock_ttl_seconds = int(os.getenv("LEADER_LOCK_TTL", "60"))
         # אפשרות לעקוף נעילה כדי לשחזר במהירות תפקוד
         # הוסף ב-Render: DISABLE_LEADER_LOCK=1 כדי לנטרל זמנית
-        self.leader_lock_enabled = os.getenv("DISABLE_LEADER_LOCK", "0").lower() not in ("1", "true", "yes")
+        self.leader_lock_enabled = (
+            os.getenv("DISABLE_LEADER_LOCK", "0").lower()
+            not in ("1", "true", "yes")
+        )
         self._lock_refresh_task = None
 
         # יצירת אפליקציית בוט
@@ -551,7 +554,10 @@ class TefillinBot:
                 logger.warning("Leader lock is held by another instance. Standing by without polling.")
                 raise RuntimeError("Not leader - another instance is running")
         else:
-            logger.warning("Leader lock disabled via env. Starting without distributed lock (temporary recovery mode).")
+            logger.warning(
+                "Leader lock disabled via env. Starting without distributed lock "
+                "(temporary recovery mode)."
+            )
 
         # בדיקת חיבור למסד נתונים
         try:
