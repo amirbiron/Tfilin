@@ -199,7 +199,10 @@ class TefillinBot:
                 await self.handle_tefillin_done(query, user_id)
             elif data.startswith("snooze_"):
                 await self.handlers.handle_snooze_callback(update, context)
-            elif data in ["show_settings", "change_time", "stats", "sunset_settings", "back_to_settings"]:
+            elif data == "back_to_settings":
+                user = self.db_manager.get_user(user_id)
+                await self.show_main_settings(query.message, user)
+            elif data in ["show_settings", "change_time", "stats", "sunset_settings"]:
                 await self.handlers.handle_settings_callback(update, context)
             elif data.startswith("sunset_"):
                 await self.handlers.handle_settings_callback(update, context)
@@ -209,6 +212,9 @@ class TefillinBot:
                 await self.handle_show_shema(query)
             elif data == "take_selfie":
                 await self.handle_take_selfie(query)
+            elif data == "show_help":
+                # שליחת טקסט העזרה כמו ב-/help
+                await self.help_command(type("U", (), {"message": query.message, "effective_user": update.effective_user})(), context)
             elif data == "back_to_menu":
                 user = self.db_manager.get_user(user_id)
                 await self.show_main_menu(query.message, user)
@@ -354,6 +360,87 @@ class TefillinBot:
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         await query.edit_message_text(text, reply_markup=reply_markup)
+
+    async def handle_text_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """מיפוי כפתורי ReplyKeyboard לפעולות"""
+        text = (update.message.text or "").strip()
+        user_id = update.effective_user.id
+        user = self.db_manager.get_user(user_id)
+
+        try:
+            if text == "הנחתי ✅":
+                # עיבוד כמו handle_tefillin_done אך בהודעת טקסט
+                today = datetime.now().date().isoformat()
+                if user:
+                    last_done = user.get("last_done")
+                    if last_done == today:
+                        await update.message.reply_text("כבר סימנת שהנחת היום ✅")
+                        return
+                    current_streak = user.get("streak", 0)
+                    yesterday = (datetime.now().date() - timedelta(days=1)).isoformat()
+                    new_streak = current_streak + 1 if last_done == yesterday else 1
+                    self.db_manager.update_user(
+                        user_id,
+                        {"streak": new_streak, "last_done": today, "last_done_time": datetime.now().isoformat()},
+                    )
+                    streak_text = ""
+                    if new_streak > 1:
+                        if new_streak >= 7:
+                            streak_text = f"\n🔥 אלוף! רצף של {new_streak} ימים!"
+                        elif new_streak >= 3:
+                            streak_text = f"\n🔥 כל הכבוד! רצף של {new_streak} ימים!"
+                        else:
+                            streak_text = f"\n🔥 רצף: {new_streak} ימים"
+                    await update.message.reply_text(f"איזה מלך! ✅🙏\nהמשך יום מעולה!{streak_text}")
+                else:
+                    await update.message.reply_text("לא נמצאת במערכת. הקש /start להרשמה.")
+                return
+
+            if text == "קריאת שמע 📖":
+                await self.handle_show_shema(type("Q", (), {"edit_message_text": update.message.reply_text})())
+                return
+
+            if text == "צלם תמונה 📸":
+                # שלח הודעה עם Inline כפתור WebApp למצלמה
+                base_url = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:10000"
+                camera_url = f"{base_url.rstrip('/')}/camera?chat_id={update.message.chat_id}"
+                keyboard = InlineKeyboardMarkup(
+                    [
+                        [InlineKeyboardButton("פתח מצלמה 📷", web_app=WebAppInfo(camera_url))],
+                        [InlineKeyboardButton("⬅️ חזור", callback_data="back_to_menu")],
+                    ]
+                )
+                await update.message.reply_text("פתח את המצלמה מתוך Telegram:", reply_markup=keyboard)
+                return
+
+            if text == "🕐 שינוי שעה":
+                await self.handlers.show_time_selection(type("Q", (), {"edit_message_text": update.message.reply_text})())
+                return
+
+            if text == "🌇 תזכורת שקיעה":
+                await self.handlers.show_sunset_settings(
+                    type("Q", (), {"edit_message_text": update.message.reply_text})(), user_id
+                )
+                return
+
+            if text == "📊 סטטיסטיקות":
+                await self.stats_command(update, context)
+                return
+
+            if text == "⚙️ הגדרות":
+                await self.settings_command(update, context)
+                return
+
+            # ברירת מחדל: זיהוי שעה ידנית
+            if validate_time_input(text):
+                await update.message.reply_text(
+                    f"נראה שרצית לקבוע שעה: {text}\nהשתמש ב-/settings כדי לשנות את השעה היומית."
+                )
+            else:
+                await update.message.reply_text("שלום! 👋\nהשתמש ב-/menu או ב-/help לעזרה.")
+        except Exception as e:
+            logger.error(f"Error in text handler: {e}")
+            await update.message.reply_text("אירעה שגיאה, נסה שוב.")
 
     async def settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """פקודת הגדרות מפורטת"""
