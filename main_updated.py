@@ -2,6 +2,9 @@ import asyncio
 import logging
 import os
 import uuid
+import base64
+import json
+from io import BytesIO
 from datetime import datetime, timedelta
 
 from pymongo import MongoClient
@@ -80,6 +83,7 @@ class TefillinBot:
         self.app.add_handler(CallbackQueryHandler(self.button_callback))
 
         # Message handlers
+        self.app.add_handler(MessageHandler(filters.ALL, self.handle_web_app_data))
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_text_message))
 
         # Error handler
@@ -109,7 +113,7 @@ class TefillinBot:
     async def show_main_menu(self, message, user, greeting: str | None = None):
         """הצגת תפריט ראשי עם כפתורי פעולה בתחתית ההקלדה (ReplyKeyboard)"""
         base_url = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:10000"
-        camera_url = f"{base_url.rstrip('/')}/camera?chat_id={message.chat_id}"
+        camera_url = f"{base_url.rstrip('/')}/webapp/camera"
 
         # ReplyKeyboard בתחתית שורת ההקלדה
         reply_keyboard = ReplyKeyboardMarkup(
@@ -261,7 +265,7 @@ class TefillinBot:
 
         # כפתורי המשך / תפריט ראשי
         base_url = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:10000"
-        camera_url = f"{base_url.rstrip('/')}/camera?chat_id={query.message.chat_id}"
+        camera_url = f"{base_url.rstrip('/')}/webapp/camera"
         keyboard = [
             [InlineKeyboardButton("🌇 הגדרת תזכורת שקיעה", callback_data="sunset_settings")],
             [
@@ -360,7 +364,7 @@ class TefillinBot:
     async def handle_take_selfie(self, query):
         """פתיחת מצלמה באמצעות Web App"""
         base_url = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:10000"
-        camera_url = f"{base_url.rstrip('/')}/camera?chat_id={query.message.chat_id}"
+        camera_url = f"{base_url.rstrip('/')}/webapp/camera"
 
         text = "📸 צילום עם תפילין\n\n" "לחץ על הכפתור כדי לפתוח את המצלמה בתוך Telegram, צלם ושלח אליי."
 
@@ -414,7 +418,7 @@ class TefillinBot:
             if text == "צלם תמונה 📸":
                 # שלח הודעה עם Inline כפתור WebApp למצלמה
                 base_url = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:10000"
-                camera_url = f"{base_url.rstrip('/')}/camera?chat_id={update.message.chat_id}"
+                camera_url = f"{base_url.rstrip('/')}/webapp/camera"
                 keyboard = InlineKeyboardMarkup(
                     [
                         [InlineKeyboardButton("פתח מצלמה 📷", web_app=WebAppInfo(camera_url))],
@@ -423,6 +427,29 @@ class TefillinBot:
                 )
                 await update.message.reply_text("פתח את המצלמה מתוך Telegram:", reply_markup=keyboard)
                 return
+
+    async def handle_web_app_data(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """קליטת נתונים מ-WebApp (למשל תמונה ממצלמה) ושליחתם לצ'אט."""
+        try:
+            msg = update.effective_message
+            web_app_data = getattr(msg, "web_app_data", None)
+            if not web_app_data or not web_app_data.data:
+                return
+            data = json.loads(web_app_data.data)
+            if data.get("type") != "photo" or not data.get("dataUrl"):
+                return
+            data_url = data["dataUrl"]
+            header, b64data = data_url.split(",", 1)
+            image_bytes = base64.b64decode(b64data)
+            bio = BytesIO(image_bytes)
+            bio.name = "photo.jpg"
+            await msg.reply_photo(photo=bio)
+        except Exception as e:
+            logger.error(f"Error handling web_app_data: {e}")
+            try:
+                await update.effective_message.reply_text("שגיאה בעיבוד התמונה שנשלחה מהמצלמה.")
+            except Exception:
+                pass
 
             if text == "🕐 שינוי שעה":
                 await self.handlers.show_time_selection(type("Q", (), {"edit_message_text": update.message.reply_text})())
