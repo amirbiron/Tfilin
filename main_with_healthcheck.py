@@ -43,7 +43,7 @@ def health_check():
             status["database"] = "connected"
         else:
             status["database"] = "disconnected"
-    except:
+    except Exception:
         status["database"] = "error"
         status["status"] = "degraded"
 
