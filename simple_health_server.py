@@ -14,7 +14,7 @@ import time
 from datetime import datetime
 from threading import Event, Thread
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, make_response, request
 
 # Configure logging
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -48,6 +48,120 @@ def health_check():
 def index():
     """Root endpoint"""
     return jsonify({"service": "Tefillin Bot", "version": "2.0.0", "status": "running", "health_check": "/health"})
+
+
+@app.route("/webapp/camera")
+def webapp_camera():
+    """Serve a minimal WebApp page that opens device camera and returns photo to Telegram"""
+    html = """
+<!doctype html>
+<html lang=\"he\">
+<head>
+  <meta charset=\"utf-8\" />
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover\" />
+  <title>צלם תמונה</title>
+  <script src=\"https://telegram.org/js/telegram-web-app.js\"></script>
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:#111; color:#fff; }
+    .container { padding: 16px; }
+    video, canvas { width: 100%; max-height: 60vh; background:#000; border-radius: 12px; }
+    .row { display: flex; gap: 12px; margin-top: 12px; }
+    button { flex: 1; padding: 14px 16px; font-size: 16px; border-radius: 12px; border: none; cursor: pointer; }
+    #snap { background:#2ea043; color:#fff; }
+    #retake { background:#444; color:#fff; }
+    #send { background:#1d9bf0; color:#fff; }
+    .hidden { display: none; }
+  </style>
+  <meta http-equiv=\"origin-trial\" content=\"\" />
+  <meta name=\"referrer\" content=\"no-referrer\" />
+  <meta http-equiv=\"Permissions-Policy\" content=\"camera=(self)\" />
+  <meta name=\"color-scheme\" content=\"dark light\" />
+  <meta name=\"theme-color\" content=\"#111\" />
+  <meta name=\"apple-mobile-web-app-capable\" content=\"yes\" />
+  <meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\" />
+  <meta name=\"mobile-web-app-capable\" content=\"yes\" />
+  <meta name=\"format-detection\" content=\"telephone=no\" />
+  <meta name=\"HandheldFriendly\" content=\"true\" />
+  <meta name=\"apple-mobile-web-app-title\" content=\"Camera\" />
+</head>
+<body dir=\"rtl\">
+  <div class=\"container\">
+    <h2>📸 צלם תמונה</h2>
+    <video id=\"preview\" autoplay playsinline></video>
+    <canvas id=\"photo\" class=\"hidden\"></canvas>
+    <div class=\"row\">
+      <button id=\"snap\">צלם</button>
+      <button id=\"retake\" class=\"hidden\">צלם שוב</button>
+      <button id=\"send\" class=\"hidden\">שלח</button>
+    </div>
+  </div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.expand();
+      tg.MainButton.hide();
+    }
+
+    const video = document.getElementById('preview');
+    const canvas = document.getElementById('photo');
+    const snapBtn = document.getElementById('snap');
+    const retakeBtn = document.getElementById('retake');
+    const sendBtn = document.getElementById('send');
+
+    async function initCamera() {
+      try {
+        const constraints = { video: { facingMode: 'user' } };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = stream;
+      } catch (e) {
+        alert('לא הצלחתי לפתוח מצלמה: ' + e.message);
+      }
+    }
+
+    function showPreview() {
+      canvas.classList.add('hidden');
+      video.classList.remove('hidden');
+      snapBtn.classList.remove('hidden');
+      retakeBtn.classList.add('hidden');
+      sendBtn.classList.add('hidden');
+    }
+
+    function showCapture() {
+      const ctx = canvas.getContext('2d');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.classList.remove('hidden');
+      video.classList.add('hidden');
+      snapBtn.classList.add('hidden');
+      retakeBtn.classList.remove('hidden');
+      sendBtn.classList.remove('hidden');
+    }
+
+    snapBtn.addEventListener('click', showCapture);
+    retakeBtn.addEventListener('click', showPreview);
+    sendBtn.addEventListener('click', () => {
+      try {
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        const payload = { type: 'photo', dataUrl };
+        if (tg) {
+          tg.sendData(JSON.stringify(payload));
+          tg.close();
+        } else {
+          alert('Telegram WebApp API לא זמין');
+        }
+      } catch (e) {
+        alert('שגיאה בשליחת התמונה: ' + e.message);
+      }
+    });
+
+    initCamera();
+  </script>
+</body>
+</html>
+    """
+    return make_response(html, 200, {"Content-Type": "text/html; charset=utf-8"})
 
 
 @app.route("/favicon.ico")
@@ -171,6 +285,12 @@ def upload_photo():
 def run_telegram_bot():
     """Run the Telegram bot with proper error handling"""
     global bot_status  # noqa: F824
+
+    # Ensure an asyncio event loop exists in this background thread (Python 3.11+ requirement)
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
 
     max_retries = 3
     retry_count = 0

@@ -13,6 +13,13 @@ class Config:
     # חיבור ל-MongoDB
     MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/tefillin_bot")
 
+    # WebApp base URL (for opening device camera via Telegram WebApp)
+    # Example for Render: https://<your-service>.onrender.com
+    WEBAPP_BASE_URL = os.getenv("WEBAPP_BASE_URL", "http://localhost:10000")
+
+    # Feature flag: enable/disable WebApp camera button
+    ENABLE_WEBAPP_CAMERA = os.getenv("ENABLE_WEBAPP_CAMERA", "false").lower() == "true"
+
     # הגדרות זמן
     DEFAULT_TIMEZONE = "Asia/Jerusalem"
     DEFAULT_REMINDER_TIME = "07:30"
