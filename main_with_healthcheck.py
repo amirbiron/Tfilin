@@ -27,8 +27,6 @@ bot_thread = None
 @app.route("/health")
 def health_check():
     """Health check endpoint for Render"""
-    global bot_instance
-
     status = {"status": "healthy", "timestamp": datetime.now().isoformat(), "service": "tefillin-bot"}
 
     # Check if bot is running
@@ -91,7 +89,7 @@ def signal_handler(sig, frame):
     """Handle shutdown signals gracefully"""
     logger.info("Received shutdown signal, cleaning up...")
 
-    global bot_instance
+    global bot_instance  # noqa: F824
     if bot_instance:
         try:
             # Stop the bot gracefully

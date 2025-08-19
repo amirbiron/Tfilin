@@ -51,7 +51,7 @@ def index():
 
 def run_telegram_bot():
     """Run the Telegram bot with proper error handling"""
-    global bot_status
+    global bot_status  # noqa: F824
 
     max_retries = 3
     retry_count = 0
