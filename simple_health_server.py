@@ -49,6 +49,64 @@ def index():
     """Root endpoint"""
     return jsonify({"service": "Tefillin Bot", "version": "2.0.0", "status": "running", "health_check": "/health"})
 
+@app.route("/favicon.ico")
+def favicon():
+    return ("", 204)
+
+@app.route("/camera")
+def camera_page():
+    """A minimal camera page to open in external browser"""
+    base_url = os.environ.get("RENDER_EXTERNAL_URL", "")
+    bot_username = os.environ.get("BOT_USERNAME", "")
+    bot_link = f"tg://resolve?domain={bot_username}" if bot_username else "https://t.me"
+
+    html = f"""
+<!DOCTYPE html>
+<html lang=\"he\">
+<head>
+  <meta charset=\"utf-8\" />
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+  <title>מצלמה - בוט תפילין</title>
+  <style>
+    body {{ font-family: sans-serif; margin: 16px; }}
+    .box {{ margin: 12px 0; }}
+    button, a.button {{ display: inline-block; padding: 12px 16px; background:#0b74de; color:#fff; text-decoration:none; border:none; border-radius:8px; }}
+    .hint {{ color:#555; font-size:14px; }}
+  </style>
+  <script>
+    function openFileCapture() {{
+      const input = document.getElementById('capture');
+      input.click();
+    }}
+    function onFileChosen(e) {{
+      const file = e.target.files && e.target.files[0];
+      const status = document.getElementById('status');
+      if (file) {{
+        status.textContent = 'נבחרה תמונה. כעת פתח את טלגרם ושלח אותה לבוט';
+      }} else {{
+        status.textContent = '';
+      }}
+    }}
+  </script>
+  </head>
+<body>
+  <h2>📸 צילום ושליחה לבוט</h2>
+  <div class=\"box\">
+    <input id=\"capture\" type=\"file\" accept=\"image/*\" capture=\"environment\" style=\"display:none\" onchange=\"onFileChosen(event)\" />
+    <button onclick=\"openFileCapture()\">פתח מצלמה</button>
+  </div>
+  <div id=\"status\" class=\"box hint\"></div>
+  <div class=\"box hint\">
+    לאחר צילום, פתח את טלגרם ושלח את התמונה לבוט.
+  </div>
+  <div class=\"box\">
+    <a class=\"button\" href=\"{bot_link}\">פתח את טלגרם</a>
+  </div>
+  <div class=\"box hint\">URL שירות: {base_url}</div>
+</body>
+</html>
+"""
+    return html, 200, {"Content-Type": "text/html; charset=utf-8"}
 
 def run_telegram_bot():
     """Run the Telegram bot with proper error handling"""

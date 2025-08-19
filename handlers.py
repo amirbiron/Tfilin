@@ -165,6 +165,7 @@ class TefillinHandlers:
         """עדכון הגדרת תזכורת שקיעה"""
         minutes = int(data.replace("sunset_", ""))
 
+        # עדכון לא הורס נתונים אחרים
         update_data = {"sunset_reminder": minutes}
         self.users_collection.update_one({"user_id": user_id}, {"$set": update_data})
 

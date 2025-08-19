@@ -121,22 +121,19 @@ class TefillinBot:
             selective=False,
         )
 
-        # InlineKeyboard עם פעולות (כולל WebApp למצלמה)
+        # InlineKeyboard עם פעולות (קישור חיצוני למצלמה)
         inline_keyboard = InlineKeyboardMarkup(
             [
                 [InlineKeyboardButton("הנחתי ✅", callback_data="tefillin_done")],
                 [
                     InlineKeyboardButton("קריאת שמע 📖", callback_data="show_shema"),
-                    InlineKeyboardButton("צלם תמונה 📸", web_app=WebAppInfo(camera_url)),
+                    InlineKeyboardButton("צלם תמונה 📸", url=camera_url),
                 ],
                 [
                     InlineKeyboardButton("🕐 שינוי שעה", callback_data="change_time"),
                     InlineKeyboardButton("🌇 תזכורת שקיעה", callback_data="sunset_settings"),
                 ],
-                [
-                    InlineKeyboardButton("📊 סטטיסטיקות", callback_data="stats"),
-                    InlineKeyboardButton("⚙️ הגדרות", callback_data="show_settings"),
-                ],
+                [InlineKeyboardButton("📊 סטטיסטיקות", callback_data="stats"), InlineKeyboardButton("⚙️ הגדרות", callback_data="show_settings")],
             ]
         )
 
@@ -150,9 +147,8 @@ class TefillinBot:
                 f"🔥 רצף: {streak} ימים\n\n"
             )
 
-        await message.reply_text(header + "מה תרצה לעשות עכשיו?", reply_markup=reply_keyboard)
-        # שליחת ההודעה עם inline כדי לאפשר פעולות מתקדמות במידת הצורך
-        await message.reply_text("או בחר פעולה מהתפריט שלמטה:", reply_markup=inline_keyboard)
+        await message.reply_text(header, reply_markup=reply_keyboard)
+        await message.reply_text("תפריט פעולות:", reply_markup=inline_keyboard)
 
     async def show_time_selection_for_new_user(self, update, user_name):
         """הצגת בחירת שעה למשתמש חדש"""
@@ -256,7 +252,7 @@ class TefillinBot:
             [InlineKeyboardButton("🌇 הגדרת תזכורת שקיעה", callback_data="sunset_settings")],
             [
                 InlineKeyboardButton("קריאת שמע 📖", callback_data="show_shema"),
-                InlineKeyboardButton("צלם תמונה 📸", web_app=WebAppInfo(camera_url)),
+                InlineKeyboardButton("צלם תמונה 📸", url=camera_url),
             ],
             [InlineKeyboardButton("⚙️ הגדרות נוספות", callback_data="show_settings")],
             [InlineKeyboardButton("⬅️ חזור", callback_data="back_to_menu")],
