@@ -43,6 +43,9 @@ class TefillinBot:
         # הגדרות נעילה מבוזרת (leader lock)
         self.leader_owner_id = str(uuid.uuid4())
         self.lock_ttl_seconds = int(os.getenv("LEADER_LOCK_TTL", "60"))
+        # אפשרות לעקוף נעילה כדי לשחזר במהירות תפקוד
+        # הוסף ב-Render: DISABLE_LEADER_LOCK=1 כדי לנטרל זמנית
+        self.leader_lock_enabled = os.getenv("DISABLE_LEADER_LOCK", "0").lower() not in ("1", "true", "yes")
         self._lock_refresh_task = None
 
         # יצירת אפליקציית בוט
@@ -541,11 +544,14 @@ class TefillinBot:
         """פעולות אתחול"""
         logger.info("Starting Tefillin Bot...")
 
-        # ניסיון קבלת leader lock לפני תחילת polling
-        got_lock = self.db_manager.acquire_leader_lock(self.leader_owner_id, ttl_seconds=self.lock_ttl_seconds)
-        if not got_lock:
-            logger.warning("Leader lock is held by another instance. Standing by without polling.")
-            raise RuntimeError("Not leader - another instance is running")
+        # ניסיון קבלת leader lock לפני תחילת polling (אם לא מנוטרל)
+        if self.leader_lock_enabled:
+            got_lock = self.db_manager.acquire_leader_lock(self.leader_owner_id, ttl_seconds=self.lock_ttl_seconds)
+            if not got_lock:
+                logger.warning("Leader lock is held by another instance. Standing by without polling.")
+                raise RuntimeError("Not leader - another instance is running")
+        else:
+            logger.warning("Leader lock disabled via env. Starting without distributed lock (temporary recovery mode).")
 
         # בדיקת חיבור למסד נתונים
         try:
@@ -558,8 +564,9 @@ class TefillinBot:
         # התחלת הסקדיולר
         self.scheduler.start()
 
-        # הפעלת משימת רענון לוק כדי לשמור בעלות
-        self._lock_refresh_task = asyncio.create_task(self._refresh_leader_lock_task())
+        # הפעלת משימת רענון לוק כדי לשמור בעלות (רק אם נעילה פעילה)
+        if self.leader_lock_enabled:
+            self._lock_refresh_task = asyncio.create_task(self._refresh_leader_lock_task())
 
         # עדכון זמני שקיעה
         await self.scheduler.update_daily_times()
@@ -584,11 +591,12 @@ class TefillinBot:
         except Exception:
             pass
 
-        # שחרור ה-leader lock
-        try:
-            self.db_manager.release_leader_lock(self.leader_owner_id)
-        except Exception:
-            pass
+        # שחרור ה-leader lock (רק אם נעילה פעילה)
+        if self.leader_lock_enabled:
+            try:
+                self.db_manager.release_leader_lock(self.leader_owner_id)
+            except Exception:
+                pass
 
         # סגירת חיבור למסד נתונים
         self.db_client.close()
@@ -597,6 +605,9 @@ class TefillinBot:
 
     async def _refresh_leader_lock_task(self):
         """משימה שומרת-חיים לרענון ה-leader lock באופן מחזורי"""
+        # אם נעילה מנוטרלת אין מה לרענן
+        if not self.leader_lock_enabled:
+            return
         try:
             while True:
                 await asyncio.sleep(max(5, self.lock_ttl_seconds // 2))

@@ -208,8 +208,8 @@ def run_telegram_bot():
             bot_status["error"] = error_msg
             bot_status["last_update"] = datetime.now().isoformat()
 
-            # Standby (not leader)
-            if "Not leader" in str(e) or "leader lock" in str(e):
+            # Standby (not leader), unless lock disabled
+            if ("Not leader" in str(e) or "leader lock" in str(e)) and os.environ.get("DISABLE_LEADER_LOCK", "0").lower() not in ("1","true","yes"):
                 logger.info("Not leader. Standing by and retrying to acquire leader lock later...")
                 time.sleep(15)
                 continue
