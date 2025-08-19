@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from telegram import Chat, Message, Update, User
 
-from handlers import Handlers
+from handlers import TefillinHandlers as Handlers
 
 
 class TestHandlers:
