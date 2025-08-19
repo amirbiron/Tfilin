@@ -86,6 +86,12 @@ def run_telegram_bot():
             bot_status["error"] = error_msg
             bot_status["last_update"] = datetime.now().isoformat()
 
+            # Standby (not leader)
+            if "Not leader" in str(e) or "leader lock" in str(e):
+                logger.info("Not leader. Standing by and retrying to acquire leader lock later...")
+                time.sleep(15)
+                continue
+
             # Check if it's a conflict error
             if "Conflict" in str(e) or "409" in str(e):
                 logger.warning("Conflict detected, waiting before retry...")

@@ -2,10 +2,12 @@ import asyncio
 import logging
 import os
 from datetime import datetime
+import uuid
 
 from pymongo import MongoClient
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.error import Conflict
 
 from config import Config
 from database import DatabaseManager
@@ -30,6 +32,11 @@ class TefillinBot:
         self.db_client = MongoClient(Config.MONGODB_URI)
         self.db_manager = DatabaseManager(self.db_client)
         self.db_manager.setup_database()
+
+        # הגדרות נעילה מבוזרת (leader lock)
+        self.leader_owner_id = str(uuid.uuid4())
+        self.lock_ttl_seconds = int(os.getenv("LEADER_LOCK_TTL", "60"))
+        self._lock_refresh_task = None
 
         # יצירת אפליקציית בוט
         self.app = Application.builder().token(Config.BOT_TOKEN).build()
@@ -379,6 +386,10 @@ class TefillinBot:
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
         """טיפול בשגיאות"""
+        # טיפול רך ב-409 Conflict
+        if isinstance(getattr(context, "error", None), Conflict):
+            logger.warning("Conflict detected (409) – another polling process may be active. Ignoring temporarily.")
+            return
         logger.error(f"Exception while handling an update: {context.error}")
 
         # אם יש update, נסה לשלוח הודעת שגיאה למשתמש
@@ -392,6 +403,13 @@ class TefillinBot:
         """פעולות אתחול"""
         logger.info("Starting Tefillin Bot...")
 
+        # ניסיון קבלת leader lock לפני תחילת polling
+        got_lock = self.db_manager.acquire_leader_lock(self.leader_owner_id, ttl_seconds=self.lock_ttl_seconds)
+        if not got_lock:
+            logger.warning("Leader lock is held by another instance. Standing by without polling.")
+            # זריקה כדי לעצור את run_polling לפני תחילת getUpdates
+            raise RuntimeError("Not leader - another instance is running")
+
         # בדיקת חיבור למסד נתונים
         try:
             self.db_client.admin.command("ping")
@@ -402,6 +420,9 @@ class TefillinBot:
 
         # התחלת הסקדיולר
         self.scheduler.start()
+
+        # הפעלת משימת רענון לוק כדי לשמור בעלות
+        self._lock_refresh_task = asyncio.create_task(self._refresh_leader_lock_task())
 
         # עדכון זמני שקיעה
         await self.scheduler.update_daily_times()
@@ -414,6 +435,19 @@ class TefillinBot:
 
         # עצירת הסקדיולר
         self.scheduler.stop()
+
+        # עצירת משימת רענון הלוק
+        try:
+            if self._lock_refresh_task:
+                self._lock_refresh_task.cancel()
+        except Exception:
+            pass
+
+        # שחרור ה-leader lock
+        try:
+            self.db_manager.release_leader_lock(self.leader_owner_id)
+        except Exception:
+            pass
 
         # סגירת חיבור למסד נתונים
         self.db_client.close()
@@ -436,6 +470,22 @@ class TefillinBot:
         except Exception as e:
             logger.error(f"Critical error: {e}")
             raise
+
+    async def _refresh_leader_lock_task(self):
+        """משימה שומרת-חיים לרענון ה-leader lock באופן מחזורי"""
+        try:
+            while True:
+                # רענון חצי מה-TTL כדי לשמור מרווח ביטחון
+                await asyncio.sleep(max(5, self.lock_ttl_seconds // 2))
+                ok = self.db_manager.refresh_leader_lock(self.leader_owner_id, ttl_seconds=self.lock_ttl_seconds)
+                if not ok:
+                    logger.error("Lost leader lock. Stopping application to avoid duplicate polling.")
+                    # עצירה מסודרת של האפליקציה
+                    await self.app.stop()
+                    break
+        except asyncio.CancelledError:
+            # סיום רגיל בעת כיבוי
+            return
 
 
 if __name__ == "__main__":
