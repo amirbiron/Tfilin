@@ -1,0 +1,152 @@
+# קבצי משתני סביבה - חשוב מאוד!
+.env
+.env.local
+.env.production
+.env.development
+*.env
+
+# קבצי Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# קבצי IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# קבצי מערכת הפעלה
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.tmp
+
+# לוגים ותיקיות זמניות
+*.log
+logs/
+temp/
+tmp/
+.cache/
+
+# קבצי מסד נתונים מקומיים
+*.db
+*.sqlite
+*.sqlite3
+
+# קבצי גיבוי
+*.bak
+*.backup
+backup/
+backups/
+
+# קבצי בדיקות
+.coverage
+.pytest_cache/
+.tox/
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+
+# תיקיות וירטואליות של Python
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+virtualenv/
+
+# קבצי Docker (אם מוכנים מקומית)
+docker-compose.override.yml
+.dockerignore
+
+# קבצי Jupyter Notebook (אם משתמשים)
+.ipynb_checkpoints
+
+# קבצי תיעוד שנוצרים
+docs/_build/
+site/
+
+# קבצי הגדרות מקומיות
+config.local.py
+settings.local.py
+local_settings.py
+
+# מפתחות וטוקנים - חשוב מאוד!
+*.pem
+*.key
+*.crt
+*.p12
+api_keys.txt
+secrets.txt
+tokens.txt
+
+# קבצי debug
+debug.log
+error.log
+*.debug
+
+# קבצי מדיה זמניים
+uploads/
+media/
+static/uploads/
+
+# קבצי npm (אם יש)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# קבצי Celery (אם משתמשים)
+celerybeat-schedule
+celerybeat.pid
+
+# קבצי Redis dump
+dump.rdb
+
+# קבצי Sass/CSS
+*.css.map
+*.sass.map
+*.scss.map
+
+# קבצי תרגום
+*.mo
+*.pot
+
+# הערות חשובות:
+# 1. הקובץ .env הוא הקובץ הכי חשוב לא לשתף!
+# 2. לעולם אל תעלו טוקנים או מפתחות API ל-Git
+# 3. בדקו תמיד לפני commit שלא העליתם בטעות מידע רגיש
+# 4. אם בטעות העליתם קובץ רגיש, צרו מפתח חדש מיד!
+
+# לבדיקה מהירה לפני commit:
+# git status
+# git diff --cached
+# ודאו שאין קבצים רגישים ברשימה
