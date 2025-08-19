@@ -6,6 +6,7 @@ Designed specifically for Render deployment
 """
 
 import logging
+import asyncio
 import os
 import signal
 import sys
@@ -166,6 +167,12 @@ def webapp_camera():
 def run_telegram_bot():
     """Run the Telegram bot with proper error handling"""
     global bot_status  # noqa: F824
+
+    # Ensure an asyncio event loop exists in this background thread (Python 3.11+ requirement)
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
 
     max_retries = 3
     retry_count = 0
