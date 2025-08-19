@@ -434,7 +434,11 @@ class TefillinBot:
         logger.info("Shutting down Tefillin Bot...")
 
         # עצירת הסקדיולר
-        self.scheduler.stop()
+        try:
+            if hasattr(self, "scheduler") and self.scheduler and self.scheduler.is_running():
+                self.scheduler.stop()
+        except Exception as e:
+            logger.warning(f"Scheduler stop skipped: {e}")
 
         # עצירת משימת רענון הלוק
         try:
