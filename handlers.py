@@ -3,14 +3,7 @@ import os
 from datetime import datetime, time, timedelta
 
 from pymongo import MongoClient
-from telegram import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    KeyboardButton,
-    ReplyKeyboardMarkup,
-    Update,
-    WebAppInfo,
-)
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, Update, WebAppInfo
 from telegram.ext import CallbackQueryHandler, ContextTypes, ConversationHandler
 
 from config import Config
@@ -103,9 +96,7 @@ class TefillinHandlers:
         sunset_str = sunset_time.strftime("%H:%M")
         reminder_str = reminder_time.strftime("%H:%M")
 
-        await query.edit_message_text(
-            f"מעולה! 🌇\nאזכיר ב-{reminder_str} (30 דק' לפני השקיעה ב-{sunset_str})"
-        )
+        await query.edit_message_text(f"מעולה! 🌇\nאזכיר ב-{reminder_str} (30 דק' לפני השקיעה ב-{sunset_str})")
 
     async def handle_settings_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """טיפול בהגדרות"""
@@ -287,7 +278,7 @@ class TefillinHandlers:
             states={WAITING_CUSTOM_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_custom_time_input)]},
             fallbacks=[
                 CommandHandler("cancel", self.cancel_conversation),
-                CallbackQueryHandler(self._back_to_menu_from_conversation, pattern="^back_to_menu$")
+                CallbackQueryHandler(self._back_to_menu_from_conversation, pattern="^back_to_menu$"),
             ],
         )
 
@@ -296,9 +287,7 @@ class TefillinHandlers:
         query = update.callback_query
         await query.answer()
 
-        await query.edit_message_text(
-            "שלח לי שעה בפורמט HH:MM\nלמשל: 08:15 או 07:45\n\nאו שלח /cancel לביטול"
-        )
+        await query.edit_message_text("שלח לי שעה בפורמט HH:MM\nלמשל: 08:15 או 07:45\n\nאו שלח /cancel לביטול")
 
         return WAITING_CUSTOM_TIME
 

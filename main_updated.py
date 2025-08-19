@@ -1,21 +1,14 @@
 import asyncio
+import base64
+import json
 import logging
 import os
 import uuid
-import base64
-import json
-from io import BytesIO
 from datetime import datetime, timedelta
+from io import BytesIO
 
 from pymongo import MongoClient
-from telegram import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    KeyboardButton,
-    ReplyKeyboardMarkup,
-    Update,
-    WebAppInfo,
-)
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, Update, WebAppInfo
 from telegram.error import Conflict
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
 
@@ -151,11 +144,7 @@ class TefillinBot:
         if greeting is not None:
             current_time = (user or {}).get("daily_time", "07:30")
             streak = (user or {}).get("streak", 0)
-            header = (
-                f"שלום שוב {greeting}! 👋\n\n"
-                f"🕐 שעה יומית: {current_time}\n"
-                f"🔥 רצף: {streak} ימים\n\n"
-            )
+            header = f"שלום שוב {greeting}! 👋\n\n" f"🕐 שעה יומית: {current_time}\n" f"🔥 רצף: {streak} ימים\n\n"
 
         # ודא שהטקסט לא ריק כדי לא לשבור שליחת הודעה
         text_for_reply_keyboard = header if header.strip() else "\u00a0"
@@ -304,9 +293,7 @@ class TefillinBot:
         # בדיקה שלא סומן כבר היום
         last_done = user.get("last_done")
         if last_done == today:
-            await query.edit_message_text(
-                "כבר סימנת שהנחת תפילין היום! ✅\nהמשך יום מעולה! 🙏"
-            )
+            await query.edit_message_text("כבר סימנת שהנחת תפילין היום! ✅\nהמשך יום מעולה! 🙏")
             return
 
         # עדכון רצף
@@ -374,9 +361,7 @@ class TefillinBot:
         base_url = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:10000"
         camera_url = f"{base_url.rstrip('/')}/webapp/camera"
 
-        text = (
-            "📸 צילום עם תפילין\n\nלחץ על הכפתור כדי לפתוח את המצלמה בתוך Telegram, צלם ושלח אליי."
-        )
+        text = "📸 צילום עם תפילין\n\nלחץ על הכפתור כדי לפתוח את המצלמה בתוך Telegram, צלם ושלח אליי."
 
         keyboard = [
             [InlineKeyboardButton("פתח מצלמה 📷", web_app=WebAppInfo(camera_url))],
@@ -458,9 +443,7 @@ class TefillinBot:
 
             # ברירת מחדל: זיהוי שעה ידנית
             if validate_time_input(text):
-                await update.message.reply_text(
-                    f"נראה שרצית לקבוע שעה: {text}\nהשתמש ב-/settings כדי לשנות את השעה היומית."
-                )
+                await update.message.reply_text(f"נראה שרצית לקבוע שעה: {text}\nהשתמש ב-/settings כדי לשנות את השעה היומית.")
             else:
                 await update.message.reply_text("שלום! 👋\nהשתמש ב-/menu או ב-/help לעזרה.")
         except Exception as e:
@@ -593,9 +576,7 @@ class TefillinBot:
                 logger.warning("Leader lock is held by another instance. Standing by without polling.")
                 raise RuntimeError("Not leader - another instance is running")
         else:
-            logger.warning(
-                "Leader lock disabled via env. Starting without distributed lock (temporary recovery mode)."
-            )
+            logger.warning("Leader lock disabled via env. Starting without distributed lock (temporary recovery mode).")
 
         # בדיקת חיבור למסד נתונים
         try:
