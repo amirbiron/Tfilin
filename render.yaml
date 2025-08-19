@@ -50,8 +50,7 @@ services:
         value: "1"
       - key: PYTHONPATH
         value: "/opt/render/project/src"
-      - key: PORT
-        value: "10000"
+      # PORT מוקצה אוטומטית על ידי Render לשירותי web; לא נגדיר ידנית כאן
     
     # הגדרות networking
     domains:

@@ -20,6 +20,7 @@ rm -f /tmp/bot.lock 2>/dev/null
 # Export environment variables
 export PYTHONUNBUFFERED=1
 export PYTHONPATH=/app:$PYTHONPATH
+export PORT=${PORT:-10000}
 
 # Clear Telegram webhook (if any)
 if [ ! -z "$BOT_TOKEN" ]; then
@@ -29,5 +30,5 @@ if [ ! -z "$BOT_TOKEN" ]; then
 fi
 
 # On Render, PORT is always set, so we need the health check server
-echo "Starting with health check server on port ${PORT:-10000}..."
+echo "Starting with health check server on port ${PORT}..."
 exec python simple_health_server.py
