@@ -28,10 +28,10 @@ services:
     
     # פקודות
     buildCommand: ""  # Docker יטפל בבנייה
-    startCommand: "python main_updated.py"
+    startCommand: "python main_with_healthcheck.py"
     
     # בדיקות תקינות
-    healthCheckPath: "/"  # אופציונלי
+    healthCheckPath: "/health"  # Health check endpoint
     
     # Auto-deploy
     autoDeploy: true  # deployment אוטומטי עם git push
@@ -50,6 +50,8 @@ services:
         value: "1"
       - key: PYTHONPATH
         value: "/opt/render/project/src"
+      - key: PORT
+        value: "10000"
     
     # הגדרות networking
     domains:

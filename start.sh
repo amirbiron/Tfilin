@@ -1,76 +1,31 @@
 #!/bin/bash
 
-# סקריפט הפעלה לבוט תפילין ב-Render
-# Render יריץ את הסקריפט הזה כפקודת התחלה
-
-set -e  # עצירה בשגיאה
+# Tefillin Bot Startup Script
+# מבטיח הרצה נקייה ללא instances כפולים
 
 echo "🚀 Starting Tefillin Bot..."
 
-# בדיקת משתני סביבה נדרשים
-if [ -z "$BOT_TOKEN" ]; then
-    echo "❌ Error: BOT_TOKEN environment variable is required"
-    exit 1
-fi
+# Kill any existing bot processes
+echo "Checking for existing bot processes..."
+pkill -f "python.*main_updated.py" 2>/dev/null
+pkill -f "python.*main_with_healthcheck.py" 2>/dev/null
+pkill -f "python.*bot_manager.py" 2>/dev/null
 
-if [ -z "$MONGODB_URI" ]; then
-    echo "❌ Error: MONGODB_URI environment variable is required"
-    exit 1
-fi
+# Wait a bit for processes to die
+sleep 2
 
-echo "✅ Environment variables validated"
+# Clean up lock files
+rm -f /tmp/tefillin_bot.lock 2>/dev/null
 
-# בדיקת חיבור למסד נתונים (אופציונלי)
-echo "🔍 Testing database connection..."
-python3 -c "
-import os
-from pymongo import MongoClient
-try:
-    client = MongoClient(os.getenv('MONGODB_URI'), serverSelectionTimeoutMS=5000)
-    client.admin.command('ping')
-    print('✅ Database connection successful')
-    client.close()
-except Exception as e:
-    print(f'⚠️ Database connection warning: {e}')
-    print('Bot will still attempt to start...')
-"
-
-# הגדרת משתני סביבה נוספים
-export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+# Export environment variables
 export PYTHONUNBUFFERED=1
+export PYTHONPATH=/app:$PYTHONPATH
 
-# בדיקת קבצי Python
-echo "🔍 Checking Python files..."
-if [ ! -f "main_updated.py" ]; then
-    echo "❌ Error: main_updated.py not found"
-    exit 1
+# Check if we should use health check version
+if [ "$USE_HEALTHCHECK" = "true" ] || [ "$PORT" != "" ]; then
+    echo "Starting with health check server on port ${PORT:-10000}..."
+    exec python main_with_healthcheck.py
+else
+    echo "Starting in standalone mode..."
+    exec python bot_manager.py
 fi
-
-echo "✅ Python files found"
-
-# התחלת הבוט
-echo "🤖 Starting bot application..."
-echo "Bot will run in polling mode"
-echo "Press Ctrl+C to stop"
-
-# הרצת הבוט עם הפניית פלט ושגיאות
-exec python3 main_updated.py 2>&1
-
-# הערות ל-Render:
-# 1. הגדר את הסקריפט הזה כ-Start Command ב-Render
-# 2. או השתמש ישירות ב: python main_updated.py
-# 3. וודא שמשתני הסביבה BOT_TOKEN ו-MONGODB_URI מוגדרים
-# 4. Render יריץ אוטומטית pip install -r requirements.txt
-# 5. הבוט יתחיל אוטומטית אחרי deploy מוצלח
-
-# דוגמת הגדרה ב-Render:
-# Service Type: Web Service
-# Build Command: pip install -r requirements.txt  
-# Start Command: bash start.sh
-# או פשוט: python main_updated.py
-
-# Environment Variables ב-Render:
-# BOT_TOKEN=your_bot_token_here
-# MONGODB_URI=your_mongodb_connection_string_here
-# LOG_LEVEL=INFO (אופציונלי)
-# DEFAULT_TIMEZONE=Asia/Jerusalem (אופציונלי)

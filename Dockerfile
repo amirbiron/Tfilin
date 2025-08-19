@@ -19,6 +19,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # העתקת כל קבצי הפרויקט
 COPY . .
 
+# הפוך את הסקריפט להרצה
+RUN chmod +x /app/start.sh
+
 # יצירת משתמש לא-root לאבטחה
 RUN useradd --create-home --shell /bin/bash tefillin && \
     chown -R tefillin:tefillin /app
@@ -28,15 +31,15 @@ USER tefillin
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
-# חשיפת פורט (אם נדרש webhook במקום polling)
-EXPOSE 8000
+# חשיפת פורט לhealth check endpoint
+EXPOSE 10000
 
 # בדיקת תקינות הקונטיינר
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/health', timeout=5)" || exit 1
+    CMD python -c "import requests; requests.get('http://localhost:10000/health', timeout=5)" || exit 1
 
-# פקודת הפעלה
-CMD ["python", "main_updated.py"]
+# פקודת הפעלה עם health check server
+CMD ["/app/start.sh"]
 
 # הערות לbuild ו-deployment:
 # 
