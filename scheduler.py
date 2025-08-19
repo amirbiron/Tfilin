@@ -150,10 +150,7 @@ class TefillinScheduler:
             [InlineKeyboardButton("הנחתי ✅", callback_data="tefillin_done")],
             [
                 InlineKeyboardButton("קריאת שמע 📖", callback_data="show_shema"),
-                InlineKeyboardButton(
-                    "צלם תמונה 📸",
-                    web_app=WebAppInfo(url=f"{Config.WEBAPP_BASE_URL}/webapp/camera")
-                ),
+                InlineKeyboardButton("צלם תמונה 📸", web_app=WebAppInfo(url=f"{Config.WEBAPP_BASE_URL}/webapp/camera")),
             ],
             [
                 InlineKeyboardButton("נודניק 1ש'", callback_data="snooze_60"),
@@ -187,10 +184,7 @@ class TefillinScheduler:
             [InlineKeyboardButton("הנחתי ✅", callback_data="tefillin_done")],
             [
                 InlineKeyboardButton("קריאת שמע 📖", callback_data="show_shema"),
-                InlineKeyboardButton(
-                    "צלם תמונה 📸",
-                    web_app=WebAppInfo(url=f"{Config.WEBAPP_BASE_URL}/webapp/camera")
-                ),
+                InlineKeyboardButton("צלם תמונה 📸", web_app=WebAppInfo(url=f"{Config.WEBAPP_BASE_URL}/webapp/camera")),
             ],
             [
                 InlineKeyboardButton("דחה 15 דק'", callback_data="snooze_15"),
@@ -231,10 +225,7 @@ class TefillinScheduler:
             [InlineKeyboardButton("הנחתי ✅", callback_data="tefillin_done")],
             [
                 InlineKeyboardButton("קריאת שמע 📖", callback_data="show_shema"),
-                InlineKeyboardButton(
-                    "צלם תמונה 📸",
-                    web_app=WebAppInfo(url=f"{Config.WEBAPP_BASE_URL}/webapp/camera")
-                ),
+                InlineKeyboardButton("צלם תמונה 📸", web_app=WebAppInfo(url=f"{Config.WEBAPP_BASE_URL}/webapp/camera")),
             ],
             [
                 InlineKeyboardButton("עוד נודניק 1ש'", callback_data="snooze_60"),
