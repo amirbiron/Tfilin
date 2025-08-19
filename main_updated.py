@@ -121,13 +121,13 @@ class TefillinBot:
             selective=False,
         )
 
-        # InlineKeyboard עם פעולות (קישור חיצוני למצלמה)
+        # InlineKeyboard עם פעולות (WebApp מצלמה בתוך טלגרם)
         inline_keyboard = InlineKeyboardMarkup(
             [
                 [InlineKeyboardButton("הנחתי ✅", callback_data="tefillin_done")],
                 [
                     InlineKeyboardButton("קריאת שמע 📖", callback_data="show_shema"),
-                    InlineKeyboardButton("צלם תמונה 📸", url=camera_url),
+                    InlineKeyboardButton("צלם תמונה 📸", web_app=WebAppInfo(camera_url)),
                 ],
                 [
                     InlineKeyboardButton("🕐 שינוי שעה", callback_data="change_time"),
@@ -230,20 +230,23 @@ class TefillinBot:
         # חילוץ השעה
         time_str = data.replace("time_", "")
 
-        # שמירת המשתמש
-        user_data = {
-            "user_id": user_id,
-            "daily_time": time_str,
-            "timezone": Config.DEFAULT_TIMEZONE,
-            "created_at": datetime.now(),
-            "active": True,
-            "streak": 0,
-            "sunset_reminder": 0,  # כבוי כברירת מחדל
-            "skip_shabbat": Config.SKIP_SHABBAT,
-            "skip_holidays": Config.SKIP_HOLIDAYS,
-        }
-
-        self.db_manager.upsert_user(user_id, user_data)
+        # עדכון לא הורס הגדרות קיימות: אם המשתמש קיים, עדכן רק את השעה; אחרת צור חדש
+        existing = self.db_manager.get_user(user_id)
+        if existing:
+            self.db_manager.update_user(user_id, {"daily_time": time_str})
+        else:
+            user_data = {
+                "user_id": user_id,
+                "daily_time": time_str,
+                "timezone": Config.DEFAULT_TIMEZONE,
+                "created_at": datetime.now(),
+                "active": True,
+                "streak": 0,
+                "sunset_reminder": 0,
+                "skip_shabbat": Config.SKIP_SHABBAT,
+                "skip_holidays": Config.SKIP_HOLIDAYS,
+            }
+            self.db_manager.upsert_user(user_id, user_data)
 
         # כפתורי המשך / תפריט ראשי
         base_url = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:10000"
@@ -254,7 +257,7 @@ class TefillinBot:
                 InlineKeyboardButton("קריאת שמע 📖", callback_data="show_shema"),
                 InlineKeyboardButton("צלם תמונה 📸", url=camera_url),
             ],
-            [InlineKeyboardButton("⚙️ הגדרות נוספות", callback_data="show_settings")],
+            # הוסר כפתור "הגדרות נוספות"
             [InlineKeyboardButton("⬅️ חזור", callback_data="back_to_menu")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
