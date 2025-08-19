@@ -5,8 +5,8 @@ Simple health check server with integrated Telegram bot
 Designed specifically for Render deployment
 """
 
-import logging
 import asyncio
+import logging
 import os
 import signal
 import sys
