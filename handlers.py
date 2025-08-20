@@ -1,9 +1,10 @@
 import logging
+import os
 from datetime import datetime, time, timedelta
 
 from pymongo import MongoClient
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ContextTypes, ConversationHandler
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, Update, WebAppInfo
+from telegram.ext import CallbackQueryHandler, ContextTypes, ConversationHandler
 
 from config import Config
 from hebrew_times import HebrewTimes
@@ -77,7 +78,7 @@ class TefillinHandlers:
         sunset_time = self.hebrew_times.get_sunset_time(today)
 
         if not sunset_time:
-            await query.edit_message_text("מצטער, לא הצלחתי לחשב זמן שקיעה היום.\n" "נסה דחייה רגילה.")
+            await query.edit_message_text("מצטער, לא הצלחתי לחשב זמן שקיעה היום.\nנסה דחייה רגילה.")
             return
 
         # חישוב זמן לתזכורת (30 דקות לפני שקיעה)
@@ -86,7 +87,7 @@ class TefillinHandlers:
         now = datetime.now()
 
         if reminder_time <= now:
-            await query.edit_message_text("השקיעה קרובה מדי.\n" "בחר דחייה אחרת.")
+            await query.edit_message_text("השקיעה קרובה מדי.\nבחר דחייה אחרת.")
             return
 
         minutes_until_reminder = int((reminder_time - now).total_seconds() / 60)
@@ -95,7 +96,7 @@ class TefillinHandlers:
         sunset_str = sunset_time.strftime("%H:%M")
         reminder_str = reminder_time.strftime("%H:%M")
 
-        await query.edit_message_text(f"מעולה! 🌇\n" f"אזכיר ב-{reminder_str} (30 דק' לפני השקיעה ב-{sunset_str})")
+        await query.edit_message_text(f"מעולה! 🌇\nאזכיר ב-{reminder_str} (30 דק' לפני השקיעה ב-{sunset_str})")
 
     async def handle_settings_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """טיפול בהגדרות"""
@@ -158,7 +159,8 @@ class TefillinHandlers:
         status_text = "כבוי" if current_setting == 0 else f"{current_setting} דקות לפני שקיעה"
 
         await query.edit_message_text(
-            f"תזכורת לפני שקיעה\n" f"מצב נוכחי: {status_text}\n\n" f"בחר הגדרה חדשה:", reply_markup=reply_markup
+            f"תזכורת לפני שקיעה\nמצב נוכחי: {status_text}\n\nבחר הגדרה חדשה:",
+            reply_markup=reply_markup,
         )
 
     async def handle_sunset_setting(self, query, user_id: int, data: str):
@@ -265,16 +267,19 @@ class TefillinHandlers:
         # סימון שדולג היום
         self.users_collection.update_one({"user_id": user_id}, {"$set": {"skipped_date": today}})
 
-        await query.edit_message_text("הבנתי. לא אזכיר יותר היום.\n" "נתראה מחר! 👋")
+        await query.edit_message_text("הבנתי. לא אזכיר יותר היום.\nנתראה מחר! 👋")
 
     def get_conversation_handler(self):
         """יצירת ConversationHandler לזמן מותאם אישית"""
-        from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, filters
+        from telegram.ext import CommandHandler, MessageHandler, filters
 
         return ConversationHandler(
             entry_points=[CallbackQueryHandler(self.handle_custom_time_callback, pattern="time_custom")],
             states={WAITING_CUSTOM_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_custom_time_input)]},
-            fallbacks=[CommandHandler("cancel", self.cancel_conversation)],
+            fallbacks=[
+                CommandHandler("cancel", self.cancel_conversation),
+                CallbackQueryHandler(self._back_to_menu_from_conversation, pattern="^back_to_menu$"),
+            ],
         )
 
     async def handle_custom_time_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -282,6 +287,58 @@ class TefillinHandlers:
         query = update.callback_query
         await query.answer()
 
-        await query.edit_message_text("שלח לי שעה בפורמט HH:MM\n" "למשל: 08:15 או 07:45\n\n" "או שלח /cancel לביטול")
+        await query.edit_message_text("שלח לי שעה בפורמט HH:MM\nלמשל: 08:15 או 07:45\n\nאו שלח /cancel לביטול")
 
         return WAITING_CUSTOM_TIME
+
+    async def _back_to_menu_from_conversation(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """יציאה מהשיחה וחזרה לתפריט הראשי (מטופל כאן כדי לא לחסום את הכפתור בתוך שיחה)"""
+        query = update.callback_query
+        await query.answer()
+
+        user_id = query.from_user.id
+        user = self.users_collection.find_one({"user_id": user_id}) or {}
+
+        # בניית תפריט ראשי כמו ב-show_main_menu
+        base_url = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:10000"
+        camera_url = f"{base_url.rstrip('/')}/webapp/camera"
+
+        reply_keyboard = ReplyKeyboardMarkup(
+            [
+                [KeyboardButton("הנחתי ✅")],
+                [KeyboardButton("קריאת שמע 📖"), KeyboardButton("צלם תמונה 📸")],
+                [KeyboardButton("🕐 שינוי שעה"), KeyboardButton("🌇 תזכורת שקיעה")],
+                [KeyboardButton("📊 סטטיסטיקות"), KeyboardButton("⚙️ הגדרות")],
+            ],
+            resize_keyboard=True,
+            one_time_keyboard=False,
+            selective=False,
+        )
+
+        inline_keyboard = InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton("הנחתי ✅", callback_data="tefillin_done")],
+                [
+                    InlineKeyboardButton("קריאת שמע 📖", callback_data="show_shema"),
+                    InlineKeyboardButton("צלם תמונה 📸", web_app=WebAppInfo(camera_url)),
+                ],
+                [
+                    InlineKeyboardButton("🕐 שינוי שעה", callback_data="change_time"),
+                    InlineKeyboardButton("🌇 תזכורת שקיעה", callback_data="sunset_settings"),
+                ],
+                [
+                    InlineKeyboardButton("📊 סטטיסטיקות", callback_data="stats"),
+                    InlineKeyboardButton("⚙️ הגדרות", callback_data="show_settings"),
+                ],
+            ]
+        )
+
+        current_time = user.get("daily_time", "07:30")
+        streak = user.get("streak", 0)
+        header = f"🕐 שעה יומית: {current_time}\n🔥 רצף: {streak} ימים\n\n"
+        text_for_reply_keyboard = header if header.strip() else "תפריט ראשי"
+
+        await query.message.reply_text(text_for_reply_keyboard, reply_markup=reply_keyboard)
+        await query.message.reply_text("תפריט פעולות:", reply_markup=inline_keyboard)
+
+        return ConversationHandler.END

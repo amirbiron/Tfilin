@@ -93,6 +93,7 @@ def webapp_camera():
       <button id=\"snap\">צלם</button>
       <button id=\"retake\" class=\"hidden\">צלם שוב</button>
       <button id=\"send\" class=\"hidden\">שלח</button>
+      <button id=\"share\" class=\"hidden\">שתף</button>
     </div>
   </div>
 
@@ -108,6 +109,7 @@ def webapp_camera():
     const snapBtn = document.getElementById('snap');
     const retakeBtn = document.getElementById('retake');
     const sendBtn = document.getElementById('send');
+    const shareBtn = document.getElementById('share');
 
     async function initCamera() {
       try {
@@ -137,6 +139,7 @@ def webapp_camera():
       snapBtn.classList.add('hidden');
       retakeBtn.classList.remove('hidden');
       sendBtn.classList.remove('hidden');
+      if (navigator.share) { shareBtn.classList.remove('hidden'); }
     }
 
     snapBtn.addEventListener('click', showCapture);
@@ -153,6 +156,24 @@ def webapp_camera():
         }
       } catch (e) {
         alert('שגיאה בשליחת התמונה: ' + e.message);
+      }
+    });
+
+    shareBtn.addEventListener('click', async () => {
+      try {
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        const res = await fetch(dataUrl);
+        const blob = await res.blob();
+        const file = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'תמונה', text: 'צילום מהבוט' });
+        } else if (navigator.share) {
+          await navigator.share({ url: dataUrl, title: 'תמונה', text: 'צילום מהבוט' });
+        } else {
+          alert('שיתוף לא נתמך בדפדפן זה');
+        }
+      } catch (e) {
+        alert('שגיאה בשיתוף התמונה: ' + e.message);
       }
     });
 

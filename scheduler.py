@@ -244,7 +244,9 @@ class TefillinScheduler:
 
         try:
             await self.bot_app.bot.send_message(
-                chat_id=user_id, text="🔔 נודניק – חזרתי להזכיר\n" "הגיע הזמן להניח תפילין.", reply_markup=reply_markup
+                chat_id=user_id,
+                text="🔔 נודניק – חזרתי להזכיר\nהגיע הזמן להניח תפילין.",
+                reply_markup=reply_markup,
             )
             logger.info(f"Snooze reminder sent to user {user_id}")
         except Exception as e:

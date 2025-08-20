@@ -1,18 +1,14 @@
 import asyncio
+import base64
+import json
 import logging
 import os
 import uuid
 from datetime import datetime, timedelta
+from io import BytesIO
 
 from pymongo import MongoClient
-from telegram import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    KeyboardButton,
-    ReplyKeyboardMarkup,
-    Update,
-    WebAppInfo,
-)
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, Update, WebAppInfo
 from telegram.error import Conflict
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
 
@@ -80,6 +76,7 @@ class TefillinBot:
         self.app.add_handler(CallbackQueryHandler(self.button_callback))
 
         # Message handlers
+        self.app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, self.handle_web_app_data))
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_text_message))
 
         # Error handler
@@ -109,7 +106,7 @@ class TefillinBot:
     async def show_main_menu(self, message, user, greeting: str | None = None):
         """הצגת תפריט ראשי עם כפתורי פעולה בתחתית ההקלדה (ReplyKeyboard)"""
         base_url = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:10000"
-        camera_url = f"{base_url.rstrip('/')}/camera?chat_id={message.chat_id}"
+        camera_url = f"{base_url.rstrip('/')}/webapp/camera"
 
         # ReplyKeyboard בתחתית שורת ההקלדה
         reply_keyboard = ReplyKeyboardMarkup(
@@ -150,7 +147,7 @@ class TefillinBot:
             header = f"שלום שוב {greeting}! 👋\n\n" f"🕐 שעה יומית: {current_time}\n" f"🔥 רצף: {streak} ימים\n\n"
 
         # ודא שהטקסט לא ריק כדי לא לשבור שליחת הודעה
-        text_for_reply_keyboard = header if header.strip() else "\u00a0"
+        text_for_reply_keyboard = header if header.strip() else "תפריט ראשי"
         await message.reply_text(text_for_reply_keyboard, reply_markup=reply_keyboard)
         await message.reply_text("תפריט פעולות:", reply_markup=inline_keyboard)
 
@@ -261,7 +258,7 @@ class TefillinBot:
 
         # כפתורי המשך / תפריט ראשי
         base_url = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:10000"
-        camera_url = f"{base_url.rstrip('/')}/camera?chat_id={query.message.chat_id}"
+        camera_url = f"{base_url.rstrip('/')}/webapp/camera"
         keyboard = [
             [InlineKeyboardButton("🌇 הגדרת תזכורת שקיעה", callback_data="sunset_settings")],
             [
@@ -274,11 +271,13 @@ class TefillinBot:
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         await query.edit_message_text(
-            f"מעולה! ✅\n"
-            f"תזכורת יומית נקבעה לשעה {time_str}.\n\n"
-            f"📅 תקבל תזכורת כל יום (חוץ משבת וחגים)\n"
-            f"🔔 אפשר להגדיר תזכורת נוספת לפני שקיעה\n\n"
-            f"הבוט מוכן לפעולה! 🚀",
+            (
+                f"מעולה! ✅\n"
+                f"תזכורת יומית נקבעה לשעה {time_str}.\n\n"
+                f"📅 תקבל תזכורת כל יום (חוץ משבת וחגים)\n"
+                f"🔔 אפשר להגדיר תזכורת נוספת לפני שקיעה\n\n"
+                f"הבוט מוכן לפעולה! 🚀"
+            ),
             reply_markup=reply_markup,
         )
 
@@ -360,9 +359,9 @@ class TefillinBot:
     async def handle_take_selfie(self, query):
         """פתיחת מצלמה באמצעות Web App"""
         base_url = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:10000"
-        camera_url = f"{base_url.rstrip('/')}/camera?chat_id={query.message.chat_id}"
+        camera_url = f"{base_url.rstrip('/')}/webapp/camera"
 
-        text = "📸 צילום עם תפילין\n\n" "לחץ על הכפתור כדי לפתוח את המצלמה בתוך Telegram, צלם ושלח אליי."
+        text = "📸 צילום עם תפילין\n\nלחץ על הכפתור כדי לפתוח את המצלמה בתוך Telegram, צלם ושלח אליי."
 
         keyboard = [
             [InlineKeyboardButton("פתח מצלמה 📷", web_app=WebAppInfo(camera_url))],
@@ -414,7 +413,7 @@ class TefillinBot:
             if text == "צלם תמונה 📸":
                 # שלח הודעה עם Inline כפתור WebApp למצלמה
                 base_url = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:10000"
-                camera_url = f"{base_url.rstrip('/')}/camera?chat_id={update.message.chat_id}"
+                camera_url = f"{base_url.rstrip('/')}/webapp/camera"
                 keyboard = InlineKeyboardMarkup(
                     [
                         [InlineKeyboardButton("פתח מצלמה 📷", web_app=WebAppInfo(camera_url))],
@@ -450,6 +449,29 @@ class TefillinBot:
         except Exception as e:
             logger.error(f"Error in text handler: {e}")
             await update.message.reply_text("אירעה שגיאה, נסה שוב.")
+
+    async def handle_web_app_data(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """קליטת נתונים מ-WebApp (למשל תמונה ממצלמה) ושליחתם לצ'אט."""
+        try:
+            msg = update.effective_message
+            web_app_data = getattr(msg, "web_app_data", None)
+            if not web_app_data or not web_app_data.data:
+                return
+            data = json.loads(web_app_data.data)
+            if data.get("type") != "photo" or not data.get("dataUrl"):
+                return
+            data_url = data["dataUrl"]
+            header, b64data = data_url.split(",", 1)
+            image_bytes = base64.b64decode(b64data)
+            bio = BytesIO(image_bytes)
+            bio.name = "photo.jpg"
+            await msg.reply_photo(photo=bio)
+        except Exception as e:
+            logger.error(f"Error handling web_app_data: {e}")
+            try:
+                await update.effective_message.reply_text("שגיאה בעיבוד התמונה שנשלחה מהמצלמה.")
+            except Exception:
+                pass
 
     async def settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """פקודת הגדרות מפורטת"""
@@ -554,7 +576,7 @@ class TefillinBot:
                 logger.warning("Leader lock is held by another instance. Standing by without polling.")
                 raise RuntimeError("Not leader - another instance is running")
         else:
-            logger.warning("Leader lock disabled via env. Starting without distributed lock " "(temporary recovery mode).")
+            logger.warning("Leader lock disabled via env. Starting without distributed lock (temporary recovery mode).")
 
         # בדיקת חיבור למסד נתונים
         try:
