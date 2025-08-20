@@ -87,7 +87,7 @@ def webapp_camera():
 <body dir=\"rtl\">
   <div class=\"container\">
     <h2>📸 צלם תמונה</h2>
-    <video id=\"preview\" autoplay playsinline></video>
+    <video id=\"preview\" autoplay playsinline muted></video>
     <canvas id=\"photo\" class=\"hidden\"></canvas>
     <div class=\"row\">
       <button id=\"snap\">צלם</button>
@@ -116,6 +116,9 @@ def webapp_camera():
         const constraints = { video: { facingMode: 'user' } };
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         video.srcObject = stream;
+        // Ensure autoplay works across mobile webviews (Telegram/iOS/Android)
+        video.muted = true;
+        await video.play();
       } catch (e) {
         alert('לא הצלחתי לפתוח מצלמה: ' + e.message);
       }
