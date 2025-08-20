@@ -143,7 +143,7 @@ class TefillinHandlers:
         current_setting = user.get("sunset_reminder", 0)
 
         keyboard = [
-            [InlineKeyboardButton("כבוי", callback_data="sunset_0")],
+            [InlineKeyboardButton("כיבוי תזכורת", callback_data="sunset_0")],
             [
                 InlineKeyboardButton("30 דק' לפני", callback_data="sunset_30"),
                 InlineKeyboardButton("45 דק' לפני", callback_data="sunset_45"),
@@ -156,7 +156,7 @@ class TefillinHandlers:
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        status_text = "כבוי" if current_setting == 0 else f"{current_setting} דקות לפני שקיעה"
+        status_text = "כיבוי תזכורת" if current_setting == 0 else f"{current_setting} דקות לפני שקיעה"
 
         await query.edit_message_text(
             f"תזכורת לפני שקיעה\nמצב נוכחי: {status_text}\n\nבחר הגדרה חדשה:",
@@ -197,7 +197,7 @@ class TefillinHandlers:
         if created_at:
             days_since_signup = (datetime.now() - created_at).days
 
-        sunset_text = "כבוי" if sunset_reminder == 0 else f"{sunset_reminder} דק' לפני שקיעה"
+        sunset_text = "כיבוי תזכורת" if sunset_reminder == 0 else f"{sunset_reminder} דק' לפני שקיעה"
         last_done_text = last_done if last_done else "לא נרשם"
 
         # קבלת זמן שקיעה היום

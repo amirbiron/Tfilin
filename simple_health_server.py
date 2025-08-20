@@ -14,7 +14,8 @@ import time
 from datetime import datetime
 from threading import Event, Thread
 
-from flask import Flask, jsonify, make_response, request
+from flask import Flask, jsonify, make_response, request, send_file
+import uuid
 
 # Configure logging
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -52,7 +53,7 @@ def index():
 
 @app.route("/webapp/camera")
 def webapp_camera():
-    """Serve a minimal WebApp page that opens device camera and returns photo to Telegram"""
+    """Serve a minimal WebApp page that opens device camera and allows sharing the photo"""
     html = """
 <!doctype html>
 <html lang=\"he\">
@@ -69,7 +70,6 @@ def webapp_camera():
     button { flex: 1; padding: 14px 16px; font-size: 16px; border-radius: 12px; border: none; cursor: pointer; }
     #snap { background:#2ea043; color:#fff; }
     #retake { background:#444; color:#fff; }
-    #send { background:#1d9bf0; color:#fff; }
     .hidden { display: none; }
   </style>
   <meta http-equiv=\"origin-trial\" content=\"\" />
@@ -92,7 +92,6 @@ def webapp_camera():
     <div class=\"row\">
       <button id=\"snap\">צלם</button>
       <button id=\"retake\" class=\"hidden\">צלם שוב</button>
-      <button id=\"send\" class=\"hidden\">שלח לבוט</button>
       <button id=\"share\" class=\"hidden\">שלח לאנשי קשר</button>
     </div>
   </div>
@@ -108,7 +107,6 @@ def webapp_camera():
     const canvas = document.getElementById('photo');
     const snapBtn = document.getElementById('snap');
     const retakeBtn = document.getElementById('retake');
-    const sendBtn = document.getElementById('send');
     const shareBtn = document.getElementById('share');
 
     async function initCamera() {
@@ -129,7 +127,7 @@ def webapp_camera():
       video.classList.remove('hidden');
       snapBtn.classList.remove('hidden');
       retakeBtn.classList.add('hidden');
-      sendBtn.classList.add('hidden');
+      shareBtn.classList.add('hidden');
     }
 
     function showCapture() {
@@ -141,61 +139,36 @@ def webapp_camera():
       video.classList.add('hidden');
       snapBtn.classList.add('hidden');
       retakeBtn.classList.remove('hidden');
-      sendBtn.classList.remove('hidden');
-      if (navigator.share) { shareBtn.classList.remove('hidden'); }
+      shareBtn.classList.remove('hidden');
     }
 
     snapBtn.addEventListener('click', showCapture);
     retakeBtn.addEventListener('click', showPreview);
-    sendBtn.addEventListener('click', async () => {
-      try {
-        // Capture as Blob
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-        const res = await fetch(dataUrl);
-        const blob = await res.blob();
 
-        // Prefer direct upload to the bot with chat_id from WebApp context
-        const chatId = tg?.initDataUnsafe?.user?.id ? String(tg.initDataUnsafe.user.id) : '';
-        const form = new FormData();
-        form.append('photo', blob, 'photo.jpg');
-        if (chatId) form.append('chat_id', chatId);
-
-        const uploadRes = await fetch('/upload_photo', { method: 'POST', body: form });
-        if (!uploadRes.ok) throw new Error('שגיאה בשליחה לשרת');
-
-        if (tg) tg.close();
-        else alert('התמונה נשלחה לבוט בהצלחה');
-      } catch (e) {
-        // Fallback: try sending small base64 payload via tg.sendData (may be limited by size)
-        try {
-          if (tg) {
-            const payload = { type: 'photo', dataUrl: canvas.toDataURL('image/jpeg', 0.6) };
-            tg.sendData(JSON.stringify(payload));
-            tg.close();
-          } else {
-            alert('שגיאה בשליחת התמונה: ' + (e?.message || e));
-          }
-        } catch (inner) {
-          alert('שגיאה בשליחת התמונה: ' + (inner?.message || e?.message || e));
-        }
-      }
-    });
-
+    // Share to contacts: prefer Web Share, otherwise upload and open Telegram share link
     shareBtn.addEventListener('click', async () => {
       try {
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
         const res = await fetch(dataUrl);
         const blob = await res.blob();
         const file = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: 'תמונה', text: 'צילום מהבוט' });
-        } else if (navigator.share) {
-          await navigator.share({ url: dataUrl, title: 'תמונה', text: 'צילום מהבוט' });
-        } else {
-          alert('שיתוף לא נתמך בדפדפן זה');
+          await navigator.share({ files: [file], title: 'צילום', text: 'תמונה' });
+          return;
         }
+        // Fallback: upload and open Telegram share chooser
+        const form = new FormData();
+        form.append('photo', blob, 'photo.jpg');
+        const resp = await fetch('/share_photo', { method: 'POST', body: form });
+        if (!resp.ok) throw new Error('שגיאה בהעלאה לשיתוף');
+        const data = await resp.json();
+        const url = data && data.url;
+        if (!url) throw new Error('קישור שיתוף חסר');
+        const shareLink = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent('תמונה')}`;
+        if (tg && tg.openTelegramLink) tg.openTelegramLink(shareLink);
+        else window.open(shareLink, '_blank');
       } catch (e) {
-        alert('שגיאה בשיתוף התמונה: ' + e.message);
+        alert('שגיאה בשיתוף: ' + (e && e.message ? e.message : e));
       }
     });
 
@@ -285,22 +258,17 @@ def camera_page():
 <body>
   <h2>📸 צילום ושליחה לבוט</h2>
   <video id=\"video\" style=\"width:100%;max-width:480px;background:#000\" playsinline muted></video>
-  <div class=\"box\">
-    <button id=\"snap\" onclick=\"snapAndUpload()\" disabled>צלם ושלח</button>
-  </div>
+  <div class=\"box\">\n    <button id=\"snap\" onclick=\"snapAndUpload()\" disabled>צלם ושלח</button>\n  </div>
   <div id=\"status\" class=\"box hint\"></div>
   <div id=\"fileRow\" class=\"box\" style=\"display:none\">או בחר תמונה: <input id=\"file\" type=\"file\" accept=\"image/*\" onchange=\"onFileChosen(event)\" /></div>
-  <div class=\"box hint\">
-    לאחר צילום, פתח את טלגרם ושלח את התמונה לבוט.
+  <div class=\"box hint\">\n    לאחר צילום, פתח את טלגרם ושלח את התמונה לבוט.
   </div>
-  <div class=\"box\">
-    <a class=\"button\" href=\"{bot_link}\">פתח את טלגרם</a>
-  </div>
+  <div class=\"box\">\n    <a class=\"button\" href=\"{bot_link}\">פתח את טלגרם</a>\n  </div>
   <div class=\"box hint\">URL שירות: {base_url}</div>
   <script>startCamera();</script>
 </body>
 </html>
-"""
+    """
     return html, 200, {"Content-Type": "text/html; charset=utf-8"}
 
 
@@ -325,6 +293,36 @@ def upload_photo():
         return ("error", 500)
 
 
+@app.route("/share_photo", methods=["POST"])
+def share_photo():
+    """Receive uploaded photo and return a temporary public URL for sharing"""
+    try:
+        file = request.files.get("photo")
+        if not file:
+            return ("missing photo", 400)
+        token = uuid.uuid4().hex
+        path = f"/tmp/shared_{token}.jpg"
+        file.save(path)
+        base_url = os.environ.get("PUBLIC_BASE_URL") or os.environ.get("RENDER_EXTERNAL_URL") or ""
+        url = f"{base_url.rstrip('/')}/shared/{token}.jpg" if base_url else f"/shared/{token}.jpg"
+        return jsonify({"url": url}), 200
+    except Exception as e:
+        logger.error(f"share_photo error: {e}")
+        return ("error", 500)
+
+
+@app.route("/shared/<token>.jpg")
+def get_shared_photo(token: str):
+    try:
+        path = f"/tmp/shared_{token}.jpg"
+        if not os.path.exists(path):
+            return ("not found", 404)
+        return send_file(path, mimetype="image/jpeg")
+    except Exception as e:
+        logger.error(f"get_shared_photo error: {e}")
+        return ("error", 500)
+
+
 def run_telegram_bot():
     """Run the Telegram bot with proper error handling"""
     global bot_status  # noqa: F824
@@ -342,15 +340,8 @@ def run_telegram_bot():
         try:
             logger.info(f"Starting Telegram bot (attempt {retry_count + 1}/{max_retries})...")
 
-            # Ensure an event loop exists in this thread (Python 3.11+ doesn't create one by default)
-            try:
-                asyncio.get_running_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            # Import here to avoid circular imports
-            from main_updated import TefillinBot
+            # Clean environment issues on Render containers
+            os.environ.pop("PYTHONWARNINGS", None)
 
             # Create bot instance
             bot = TefillinBot()
@@ -358,39 +349,28 @@ def run_telegram_bot():
             bot_status["last_update"] = datetime.now().isoformat()
             bot_status["error"] = None
 
-            logger.info("Bot initialized successfully, starting polling...")
-
             # Run bot with proper error handling
             bot.app.run_polling(
                 drop_pending_updates=True,  # Critical for avoiding conflicts
-                allowed_updates=[],  # Accept all update types
                 close_loop=False,
-                stop_signals=None,  # We handle signals ourselves
+                allowed_updates=None,
+                stop_signals=None,
             )
 
+            logger.info("Bot stopped gracefully")
+            break
         except Exception as e:
-            error_msg = f"Bot error: {str(e)}"
+            retry_count += 1
+            error_msg = f"Telegram bot failed to start/run (attempt {retry_count}): {e}"
             logger.error(error_msg)
             bot_status["running"] = False
             bot_status["error"] = error_msg
             bot_status["last_update"] = datetime.now().isoformat()
 
-            # Standby (not leader), unless lock disabled
-            if ("Not leader" in str(e) or "leader lock" in str(e)) and os.environ.get(
-                "DISABLE_LEADER_LOCK", "0"
-            ).lower() not in ("1", "true", "yes"):
-                logger.info("Not leader. Standing by and retrying to acquire leader lock later...")
-                time.sleep(15)
+            # Backoff before retrying
+            if retry_count < max_retries:
+                time.sleep(min(10 * retry_count, 30))
                 continue
-
-            # Check if it's a conflict error
-            if "Conflict" in str(e) or "409" in str(e):
-                logger.warning("Conflict detected, waiting before retry...")
-                time.sleep(10)  # Wait longer for conflict resolution
-            else:
-                time.sleep(5)
-
-            retry_count += 1
 
             if retry_count >= max_retries:
                 logger.error(f"Failed to start bot after {max_retries} attempts")
@@ -400,34 +380,15 @@ def run_telegram_bot():
     logger.info("Bot thread exiting")
 
 
-def signal_handler(sig, frame):
-    """Handle shutdown signals gracefully"""
-    logger.info(f"Received signal {sig}, initiating graceful shutdown...")
-    shutdown_event.set()
-    sys.exit(0)
-
-
-def main():
-    """Main entry point"""
-    # Register signal handlers
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-
-    # Get port from environment
-    port = int(os.environ.get("PORT", 10000))
+if __name__ == "__main__":
+    # Import the original bot
+    from main_updated import TefillinBot
 
     # Start bot in background thread (do not delay HTTP server startup)
     bot_thread = Thread(target=run_telegram_bot, daemon=True)
     bot_thread.start()
 
-    # Start Flask server (this blocks)
+    # Start Flask server
+    port = int(os.environ.get("PORT", 10000))
     logger.info(f"Starting health check server on port {port}...")
-    try:
-        app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False, threaded=True)
-    except Exception as e:
-        logger.error(f"Flask server error: {e}")
-        shutdown_event.set()
-
-
-if __name__ == "__main__":
-    main()
+    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
