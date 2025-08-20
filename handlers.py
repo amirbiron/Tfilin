@@ -336,7 +336,7 @@ class TefillinHandlers:
         current_time = user.get("daily_time", "07:30")
         streak = user.get("streak", 0)
         header = f"🕐 שעה יומית: {current_time}\n🔥 רצף: {streak} ימים\n\n"
-        text_for_reply_keyboard = header if header.strip() else "\u00a0"
+        text_for_reply_keyboard = header if header.strip() else "תפריט ראשי"
 
         await query.message.reply_text(text_for_reply_keyboard, reply_markup=reply_keyboard)
         await query.message.reply_text("תפריט פעולות:", reply_markup=inline_keyboard)

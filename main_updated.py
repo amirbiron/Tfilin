@@ -147,7 +147,7 @@ class TefillinBot:
             header = f"שלום שוב {greeting}! 👋\n\n" f"🕐 שעה יומית: {current_time}\n" f"🔥 רצף: {streak} ימים\n\n"
 
         # ודא שהטקסט לא ריק כדי לא לשבור שליחת הודעה
-        text_for_reply_keyboard = header if header.strip() else "\u00a0"
+        text_for_reply_keyboard = header if header.strip() else "תפריט ראשי"
         await message.reply_text(text_for_reply_keyboard, reply_markup=reply_keyboard)
         await message.reply_text("תפריט פעולות:", reply_markup=inline_keyboard)
 
