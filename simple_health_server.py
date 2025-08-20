@@ -11,11 +11,11 @@ import os
 import signal
 import sys
 import time
+import uuid
 from datetime import datetime
 from threading import Event, Thread
 
 from flask import Flask, jsonify, make_response, request, send_file
-import uuid
 
 # Configure logging
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
