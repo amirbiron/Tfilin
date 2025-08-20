@@ -92,8 +92,8 @@ def webapp_camera():
     <div class=\"row\">
       <button id=\"snap\">צלם</button>
       <button id=\"retake\" class=\"hidden\">צלם שוב</button>
-      <button id=\"send\" class=\"hidden\">שלח</button>
-      <button id=\"share\" class=\"hidden\">שתף</button>
+      <button id=\"send\" class=\"hidden\">שלח לבוט</button>
+      <button id=\"share\" class=\"hidden\">שלח לאנשי קשר</button>
     </div>
   </div>
 
@@ -147,18 +147,37 @@ def webapp_camera():
 
     snapBtn.addEventListener('click', showCapture);
     retakeBtn.addEventListener('click', showPreview);
-    sendBtn.addEventListener('click', () => {
+    sendBtn.addEventListener('click', async () => {
       try {
+        // Capture as Blob
         const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-        const payload = { type: 'photo', dataUrl };
-        if (tg) {
-          tg.sendData(JSON.stringify(payload));
-          tg.close();
-        } else {
-          alert('Telegram WebApp API לא זמין');
-        }
+        const res = await fetch(dataUrl);
+        const blob = await res.blob();
+
+        // Prefer direct upload to the bot with chat_id from WebApp context
+        const chatId = tg?.initDataUnsafe?.user?.id ? String(tg.initDataUnsafe.user.id) : '';
+        const form = new FormData();
+        form.append('photo', blob, 'photo.jpg');
+        if (chatId) form.append('chat_id', chatId);
+
+        const uploadRes = await fetch('/upload_photo', { method: 'POST', body: form });
+        if (!uploadRes.ok) throw new Error('שגיאה בשליחה לשרת');
+
+        if (tg) tg.close();
+        else alert('התמונה נשלחה לבוט בהצלחה');
       } catch (e) {
-        alert('שגיאה בשליחת התמונה: ' + e.message);
+        // Fallback: try sending small base64 payload via tg.sendData (may be limited by size)
+        try {
+          if (tg) {
+            const payload = { type: 'photo', dataUrl: canvas.toDataURL('image/jpeg', 0.6) };
+            tg.sendData(JSON.stringify(payload));
+            tg.close();
+          } else {
+            alert('שגיאה בשליחת התמונה: ' + (e?.message || e));
+          }
+        } catch (inner) {
+          alert('שגיאה בשליחת התמונה: ' + (inner?.message || e?.message || e));
+        }
       }
     });
 
