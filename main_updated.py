@@ -502,7 +502,7 @@ class TefillinBot:
         current_time = user.get("daily_time", "לא נקבע")
         streak = user.get("streak", 0)
         sunset_reminder = user.get("sunset_reminder", 0)
-        sunset_text = "כבוי" if sunset_reminder == 0 else f"{sunset_reminder} דק' לפני"
+        sunset_text = "כיבוי תזכורת" if sunset_reminder == 0 else f"{sunset_reminder} דק' לפני"
 
         settings_text = (
             f"⚙️ ההגדרות שלך:\n\n"

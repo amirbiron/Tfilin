@@ -122,7 +122,9 @@ class TefillinScheduler:
 
         for user in users_with_sunset:
             sunset_offset = user.get("sunset_reminder", 30)  # ברירת מחדל 30 דקות
-            reminder_time = datetime.combine(current_date, sunset_time) - timedelta(minutes=sunset_offset)
+            # Build timezone-aware datetime in the configured timezone
+            reminder_time_naive = datetime.combine(current_date, sunset_time)
+            reminder_time = timezone(Config.DEFAULT_TIMEZONE).localize(reminder_time_naive) - timedelta(minutes=sunset_offset)
 
             # בדיקה אם הגיע הזמן (±2 דקות)
             time_diff = abs((now - reminder_time).total_seconds())
