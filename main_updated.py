@@ -76,7 +76,7 @@ class TefillinBot:
         self.app.add_handler(CallbackQueryHandler(self.button_callback))
 
         # Message handlers
-        self.app.add_handler(MessageHandler(filters.ALL, self.handle_web_app_data))
+        self.app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, self.handle_web_app_data))
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_text_message))
 
         # Error handler
