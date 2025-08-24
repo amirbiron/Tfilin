@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from pymongo import ASCENDING, DESCENDING, MongoClient
-from pymongo.errors import ConnectionFailure, DuplicateKeyError
+from pymongo.errors import DuplicateKeyError
 
 from config import Config
 
@@ -41,10 +41,14 @@ class DatabaseManager:
             self.logs_collection.create_index([("action", ASCENDING)])
 
             # אינדקס TTL ללוגים (מחיקה אוטומטית אחרי 30 יום)
-            self.logs_collection.create_index([("timestamp", ASCENDING)], expireAfterSeconds=30 * 24 * 60 * 60)  # 30 יום
+            self.logs_collection.create_index(
+                [("timestamp", ASCENDING)],
+                expireAfterSeconds=30 * 24 * 60 * 60,
+            )  # 30 יום
 
             # אינדקסים ל-lock מבוזר למניעת ריבוי מופעים
-            # מזהה ייחודי לשם ה-lock, ו-TTL שמבוסס על שדה expireAt (נמחק כשהתאריך עובר)
+            # מזהה ייחודי לשם ה-lock, ו-TTL שמבוסס על שדה expireAt
+            # (נמחק כשהתאריך עובר)
             self.locks_collection.create_index([("name", ASCENDING)], unique=True)
             self.locks_collection.create_index([("expireAt", ASCENDING)], expireAfterSeconds=0)
 
@@ -55,7 +59,9 @@ class DatabaseManager:
             raise
 
     def acquire_leader_lock(self, owner_id: str, ttl_seconds: int = 60) -> bool:
-        """ניסיון לקבלת lock של מנהיג (leader). מחזיר True אם הצליח, אחרת False"""
+        """ניסיון לקבלת lock של מנהיג (leader).
+        מחזיר True אם הצליח, אחרת False
+        """
         try:
             now = datetime.utcnow()
             doc = {
@@ -74,7 +80,9 @@ class DatabaseManager:
             return False
 
     def refresh_leader_lock(self, owner_id: str, ttl_seconds: int = 60) -> bool:
-        """רענון ה-lock על ידי הארכת תוקף. מחזיר False אם אבד ה-lock"""
+        """רענון ה-lock על ידי הארכת תוקף.
+        מחזיר False אם אבד ה-lock
+        """
         try:
             now = datetime.utcnow()
             result = self.locks_collection.update_one(
@@ -146,7 +154,13 @@ class DatabaseManager:
             return list(
                 self.users_collection.find(
                     {"active": True},
-                    {"user_id": 1, "daily_time": 1, "timezone": 1, "sunset_reminder": 1, "last_reminder_date": 1},
+                    {
+                        "user_id": 1,
+                        "daily_time": 1,
+                        "timezone": 1,
+                        "sunset_reminder": 1,
+                        "last_reminder_date": 1,
+                    },
                 )
             )
         except Exception as e:
@@ -174,7 +188,13 @@ class DatabaseManager:
         try:
             result = self.users_collection.update_one(
                 {"user_id": user_id},
-                {"$set": {"active": False, "deactivated_at": datetime.now(), "deactivation_reason": reason}},
+                {
+                    "$set": {
+                        "active": False,
+                        "deactivated_at": datetime.now(),
+                        "deactivation_reason": reason,
+                    }
+                },
             )
 
             if result.modified_count > 0:
@@ -213,7 +233,12 @@ class DatabaseManager:
     def log_user_action(self, user_id: int, action: str, details: str = "") -> bool:
         """רישום פעולת משתמש"""
         try:
-            log_entry = {"user_id": user_id, "action": action, "details": details, "timestamp": datetime.now()}
+            log_entry = {
+                "user_id": user_id,
+                "action": action,
+                "details": details,
+                "timestamp": datetime.now(),
+            }
 
             self.logs_collection.insert_one(log_entry)
             return True
@@ -293,7 +318,11 @@ class DatabaseManager:
             }
 
             # עדכון או יצירה
-            self.stats_collection.update_one({"date": date_str, "type": "daily"}, {"$set": stats_entry}, upsert=True)
+            self.stats_collection.update_one(
+                {"date": date_str, "type": "daily"},
+                {"$set": stats_entry},
+                upsert=True,
+            )
 
             logger.info(f"Saved daily stats for {date_str}")
             return True
@@ -309,7 +338,10 @@ class DatabaseManager:
             start_date_str = start_date.date().isoformat()
 
             return list(
-                self.stats_collection.find({"type": "daily", "date": {"$gte": start_date_str}}, sort=[("date", DESCENDING)])
+                self.stats_collection.find(
+                    {"type": "daily", "date": {"$gte": start_date_str}},
+                    sort=[("date", DESCENDING)],
+                )
             )
 
         except Exception as e:
@@ -356,6 +388,78 @@ class DatabaseManager:
             logger.error(f"Failed to get database info: {e}")
             return {}
 
+    def get_usage_last_days(self, days: int = 7) -> List[Dict[str, Any]]:
+        """קבלת שימוש בשבוע האחרון (ברירת מחדל):
+        מחזיר רשימה לפי משתמש עם מספר ימים שבהם השתמש ושעות הפעילות.
+        שימוש מוגדר כאירוע action='tefillin_done' בלוגים.
+        """
+        try:
+            since = datetime.now() - timedelta(days=days)
+
+            pipeline = [
+                {"$match": {"timestamp": {"$gte": since}, "action": "tefillin_done"}},
+                {
+                    "$project": {
+                        "user_id": 1,
+                        "timestamp": 1,
+                        "date": {"$dateToString": {"format": "%Y-%m-%d", "date": "$timestamp"}},
+                        "hour": {"$dateToString": {"format": "%H:%M", "date": "$timestamp"}},
+                    }
+                },
+                {
+                    "$group": {
+                        "_id": "$user_id",
+                        "days_used": {"$addToSet": "$date"},
+                        "hours": {"$push": "$hour"},
+                        "last": {"$max": "$timestamp"},
+                    }
+                },
+                {
+                    "$project": {
+                        "_id": 0,
+                        "user_id": "$_id",
+                        "days_count": {"$size": "$days_used"},
+                        "hours": 1,
+                        "last": 1,
+                    }
+                },
+                {"$sort": {"days_count": -1, "last": -1}},
+            ]
+
+            results = list(self.logs_collection.aggregate(pipeline))
+
+            # הוספת מידע בסיסי מהטבלת users (למשל daily_time)
+            user_ids = [r["user_id"] for r in results]
+            users_map: Dict[int, Dict[str, Any]] = {}
+            if user_ids:
+                for u in self.users_collection.find(
+                    {"user_id": {"$in": user_ids}},
+                    {"user_id": 1, "daily_time": 1, "active": 1},
+                ):
+                    users_map[u.get("user_id")] = u
+
+            enriched: List[Dict[str, Any]] = []
+            for r in results:
+                user_info = users_map.get(r["user_id"], {})
+                # ייחוד שעות ומיון
+                unique_hours = sorted({h for h in r.get("hours", [])})
+                enriched.append(
+                    {
+                        "user_id": r["user_id"],
+                        "days_count": r.get("days_count", 0),
+                        "hours": unique_hours,
+                        "last": r.get("last"),
+                        "daily_time": user_info.get("daily_time"),
+                        "active": user_info.get("active", True),
+                    }
+                )
+
+            return enriched
+
+        except Exception as e:
+            logger.error(f"Failed to get usage for last {days} days: {e}")
+            return []
+
     def backup_user_data(self, user_id: int) -> Optional[Dict]:
         """גיבוי נתוני משתמש"""
         try:
@@ -366,7 +470,11 @@ class DatabaseManager:
             # הוספת לוגים אחרונים
             recent_logs = list(self.logs_collection.find({"user_id": user_id}, sort=[("timestamp", DESCENDING)], limit=50))
 
-            backup_data = {"user_data": user_data, "recent_logs": recent_logs, "backup_timestamp": datetime.now().isoformat()}
+            backup_data = {
+                "user_data": user_data,
+                "recent_logs": recent_logs,
+                "backup_timestamp": datetime.now().isoformat(),
+            }
 
             return backup_data
 
