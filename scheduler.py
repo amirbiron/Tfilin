@@ -91,9 +91,7 @@ class TefillinScheduler:
             # תמיכה בדילוג חד-פעמי
             if user.get("skip_next") is True:
                 try:
-                    self.users_collection.update_one(
-                        {"user_id": user["user_id"]}, {"$set": {"skip_next": False}}
-                    )
+                    self.users_collection.update_one({"user_id": user["user_id"]}, {"$set": {"skip_next": False}})
                 except Exception:
                     pass
                 continue
