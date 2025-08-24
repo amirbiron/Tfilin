@@ -29,9 +29,7 @@ class DatabaseManager:
             self.users_collection.create_index([("created_at", DESCENDING)])
 
             # אינדקס מורכב למשתמשים פעילים עם זמן יומי
-            self.users_collection.create_index(
-                [("active", ASCENDING), ("daily_time", ASCENDING)]
-            )
+            self.users_collection.create_index([("active", ASCENDING), ("daily_time", ASCENDING)])
 
             # יצירת אינדקסים לסטטיסטיקות
             self.stats_collection.create_index([("date", DESCENDING)])
@@ -52,9 +50,7 @@ class DatabaseManager:
             # מזהה ייחודי לשם ה-lock, ו-TTL שמבוסס על שדה expireAt
             # (נמחק כשהתאריך עובר)
             self.locks_collection.create_index([("name", ASCENDING)], unique=True)
-            self.locks_collection.create_index(
-                [("expireAt", ASCENDING)], expireAfterSeconds=0
-            )
+            self.locks_collection.create_index([("expireAt", ASCENDING)], expireAfterSeconds=0)
 
             logger.info("Database indexes created successfully")
 
@@ -119,9 +115,7 @@ class DatabaseManager:
             user_data["user_id"] = user_id
             user_data["updated_at"] = datetime.now()
 
-            result = self.users_collection.update_one(
-                {"user_id": user_id}, {"$set": user_data}, upsert=True
-            )
+            result = self.users_collection.update_one({"user_id": user_id}, {"$set": user_data}, upsert=True)
 
             if result.upserted_id:
                 logger.info(f"Created new user {user_id}")
@@ -141,9 +135,7 @@ class DatabaseManager:
         try:
             update_data["updated_at"] = datetime.now()
 
-            result = self.users_collection.update_one(
-                {"user_id": user_id}, {"$set": update_data}
-            )
+            result = self.users_collection.update_one({"user_id": user_id}, {"$set": update_data})
 
             if result.modified_count > 0:
                 logger.info(f"Updated user {user_id} data")
@@ -178,9 +170,7 @@ class DatabaseManager:
     def get_users_by_time(self, time_str: str) -> List[Dict]:
         """קבלת משתמשים לפי שעה יומית"""
         try:
-            return list(
-                self.users_collection.find({"active": True, "daily_time": time_str})
-            )
+            return list(self.users_collection.find({"active": True, "daily_time": time_str}))
         except Exception as e:
             logger.error(f"Failed to get users by time {time_str}: {e}")
             return []
@@ -188,9 +178,7 @@ class DatabaseManager:
     def get_users_with_sunset_reminder(self) -> List[Dict]:
         """קבלת משתמשים עם תזכורת שקיעה"""
         try:
-            return list(
-                self.users_collection.find({"active": True, "sunset_reminder": {"$gt": 0}})
-            )
+            return list(self.users_collection.find({"active": True, "sunset_reminder": {"$gt": 0}}))
         except Exception as e:
             logger.error(f"Failed to get users with sunset reminder: {e}")
             return []
@@ -280,9 +268,7 @@ class DatabaseManager:
 
             # קבלת מספר פעולות מהלוגים
             total_actions = self.logs_collection.count_documents({"user_id": user_id})
-            tefillin_done_count = self.logs_collection.count_documents(
-                {"user_id": user_id, "action": "tefillin_done"}
-            )
+            tefillin_done_count = self.logs_collection.count_documents({"user_id": user_id, "action": "tefillin_done"})
 
             return {
                 "streak": streak,
@@ -308,9 +294,7 @@ class DatabaseManager:
             total_users = self.users_collection.count_documents({"active": True})
 
             # ספירת משתמשים שהניחו תפילין היום
-            users_done_today = self.users_collection.count_documents(
-                {"last_done": date_str}
-            )
+            users_done_today = self.users_collection.count_documents({"last_done": date_str})
 
             # ספירת תזכורות שנשלחו היום
             reminders_sent = self.logs_collection.count_documents(
@@ -329,9 +313,7 @@ class DatabaseManager:
                 "total_users": total_users,
                 "users_done_today": users_done_today,
                 "reminders_sent": reminders_sent,
-                "completion_rate": (users_done_today / total_users * 100)
-                if total_users > 0
-                else 0,
+                "completion_rate": (users_done_today / total_users * 100) if total_users > 0 else 0,
                 "timestamp": datetime.now(),
             }
 
@@ -372,9 +354,7 @@ class DatabaseManager:
             cutoff_date = datetime.now() - timedelta(days=days_to_keep)
 
             # מחיקת סטטיסטיקות ישנות
-            result_stats = self.stats_collection.delete_many(
-                {"timestamp": {"$lt": cutoff_date}}
-            )
+            result_stats = self.stats_collection.delete_many({"timestamp": {"$lt": cutoff_date}})
 
             # לוגים נמחקים אוטומטית באמצעות TTL index
 
@@ -401,9 +381,7 @@ class DatabaseManager:
             return {
                 "database_size": db_stats.get("dataSize", 0),
                 "collections": collections_info,
-                "indexes_total": sum(
-                    info["indexes"] for info in collections_info.values()
-                ),
+                "indexes_total": sum(info["indexes"] for info in collections_info.values()),
             }
 
         except Exception as e:
@@ -490,11 +468,7 @@ class DatabaseManager:
                 return None
 
             # הוספת לוגים אחרונים
-            recent_logs = list(
-                self.logs_collection.find(
-                    {"user_id": user_id}, sort=[("timestamp", DESCENDING)], limit=50
-                )
-            )
+            recent_logs = list(self.logs_collection.find({"user_id": user_id}, sort=[("timestamp", DESCENDING)], limit=50))
 
             backup_data = {
                 "user_data": user_data,

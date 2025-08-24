@@ -38,11 +38,7 @@ class Config:
     # הודעות
     MESSAGES = {
         "welcome": "ברוך הבא! 🙏\nבוט התזכורות לתפילין יעזור לך לא לשכוח.",
-        "daily_reminder": (
-            "⏰ תזכורת יומית – תפילין\n"
-            "הגיע הזמן להניח תפילין.\n"
-            "מה תרצה לעשות?"
-        ),
+        "daily_reminder": ("⏰ תזכורת יומית – תפילין\n" "הגיע הזמן להניח תפילין.\n" "מה תרצה לעשות?"),
         "tefillin_done": "איזה מלך! ✅🙏\nהמשך יום מעולה!",
         "snooze_confirm": "סגור. אזכיר עוד {minutes} דקות ⏰",
     }
@@ -50,9 +46,7 @@ class Config:
     # מנהלים (לפקודות אדמין כמו /usage)
     # ניתן להגדיר ADMIN_IDS כשרשור מזהים מופרדים בפסיקים/רווחים/נקודה־פסיק
     # או ADMIN_ID יחיד (לנוחות), או OWNER_ID (תואם לסביבות מסוימות)
-    _ADMIN_IDS_RAW = (
-        os.getenv("ADMIN_IDS", "").replace(";", ",").replace(" ", ",").strip()
-    )
+    _ADMIN_IDS_RAW = os.getenv("ADMIN_IDS", "").replace(";", ",").replace(" ", ",").strip()
     _ADMIN_ID_SINGLE = (os.getenv("ADMIN_ID") or os.getenv("OWNER_ID") or "").strip()
 
     ADMIN_IDS = []  # type: list[int]
@@ -80,9 +74,7 @@ class Config:
             raise ValueError("BOT_TOKEN is required. Set it in environment variables.")
 
         if not cls.MONGODB_URI:
-            raise ValueError(
-                "MONGODB_URI is required. Set it in environment variables."
-            )
+            raise ValueError("MONGODB_URI is required. Set it in environment variables.")
 
         return True
 

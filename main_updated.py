@@ -160,11 +160,7 @@ class TefillinBot:
         if greeting is not None:
             current_time = (user or {}).get("daily_time", "07:30")
             streak = (user or {}).get("streak", 0)
-            header = (
-                f"שלום שוב {greeting}! 👋\n\n"
-                f"🕐 שעה יומית: {current_time}\n"
-                f"🔥 רצף: {streak} ימים\n\n"
-            )
+            header = f"שלום שוב {greeting}! 👋\n\n" f"🕐 שעה יומית: {current_time}\n" f"🔥 רצף: {streak} ימים\n\n"
 
         # ודא שהטקסט לא ריק כדי לא לשבור שליחת הודעה
         text_for_reply_keyboard = header if header.strip() else "תפריט ראשי"
@@ -314,9 +310,7 @@ class TefillinBot:
         # בדיקה שלא סומן כבר היום
         last_done = user.get("last_done")
         if last_done == today:
-            await query.edit_message_text(
-                "כבר סימנת שהנחת תפילין היום! ✅\nהמשך יום מעולה! 🙏"
-            )
+            await query.edit_message_text("כבר סימנת שהנחת תפילין היום! ✅\nהמשך יום מעולה! 🙏")
             return
 
         # עדכון רצף
@@ -390,10 +384,7 @@ class TefillinBot:
         base_url = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:10000"
         camera_url = f"{base_url.rstrip('/')}/webapp/camera"
 
-        text = (
-            "📸 צילום עם תפילין\n\n"
-            "לחץ על הכפתור כדי לפתוח את המצלמה בתוך Telegram, צלם ושלח אליי."
-        )
+        text = "📸 צילום עם תפילין\n\n" "לחץ על הכפתור כדי לפתוח את המצלמה בתוך Telegram, צלם ושלח אליי."
 
         keyboard = [
             [InlineKeyboardButton("פתח מצלמה 📷", web_app=WebAppInfo(camera_url))],
@@ -441,9 +432,7 @@ class TefillinBot:
                 return
 
             if text == "קריאת שמע 📖":
-                await self.handle_show_shema(
-                    type("Q", (), {"edit_message_text": update.message.reply_text})()
-                )
+                await self.handle_show_shema(type("Q", (), {"edit_message_text": update.message.reply_text})())
                 return
 
             if text == "צלם תמונה 📸":
@@ -460,9 +449,7 @@ class TefillinBot:
                 return
 
             if text == "🕐 שינוי שעה":
-                await self.handlers.show_time_selection(
-                    type("Q", (), {"edit_message_text": update.message.reply_text})()
-                )
+                await self.handlers.show_time_selection(type("Q", (), {"edit_message_text": update.message.reply_text})())
                 return
 
             if text == "🌇 תזכורת שקיעה":
@@ -483,8 +470,7 @@ class TefillinBot:
             # ברירת מחדל: זיהוי שעה ידנית
             if validate_time_input(text):
                 await update.message.reply_text(
-                    f"נראה שרצית לקבוע שעה: {text}\n"
-                    f"השתמש ב-/settings כדי לשנות את השעה היומית."
+                    f"נראה שרצית לקבוע שעה: {text}\n" f"השתמש ב-/settings כדי לשנות את השעה היומית."
                 )
             else:
                 await update.message.reply_text("שלום! 👋\nהשתמש ב-/menu או ב-/help לעזרה.")
@@ -583,7 +569,7 @@ class TefillinBot:
             return
 
         total_users = len(results)
-        header = f"📊 שימוש ב-{days} ימים אחרונים\nסה\"כ משתמשים פעילים: {total_users}\n\n"
+        header = f'📊 שימוש ב-{days} ימים אחרונים\nסה"כ משתמשים פעילים: {total_users}\n\n'
 
         # בניית שורות תצוגה; הגבלת שעות לתצוגה עד 5 ראשונות
         lines = []
@@ -643,9 +629,7 @@ class TefillinBot:
 
         self.db_manager.update_user(user_id, {"skipped_date": today})
 
-        await update.message.reply_text(
-            "✅ דילגתי על התזכורת להיום.\nנתראה מחר עם תזכורת חדשה! 👋"
-        )
+        await update.message.reply_text("✅ דילגתי על התזכורת להיום.\nנתראה מחר עם תזכורת חדשה! 👋")
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
         """טיפול בשגיאות"""
@@ -655,9 +639,7 @@ class TefillinBot:
         logger.error(f"Exception while handling an update: {context.error}")
         if isinstance(update, Update) and update.effective_message:
             try:
-                await update.effective_message.reply_text(
-                    "מצטער, אירעה שגיאה. אנא נסה שוב מאוחר יותר."
-                )
+                await update.effective_message.reply_text("מצטער, אירעה שגיאה. אנא נסה שוב מאוחר יותר.")
             except Exception:
                 pass
 
