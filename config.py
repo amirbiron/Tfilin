@@ -39,6 +39,34 @@ class Config:
         "snooze_confirm": "סגור. אזכיר עוד {minutes} דקות ⏰",
     }
 
+    # מנהלים (לפקודות אדמין כמו /usage)
+    # ניתן להגדיר ADMIN_IDS כשרשור מזהים מופרדים בפסיקים/רווחים/נקודה־פסיק
+    # או ADMIN_ID יחיד (לנוחות), או OWNER_ID (תואם לסביבות מסוימות)
+    _ADMIN_IDS_RAW = (
+        os.getenv("ADMIN_IDS", "")
+        .replace(";", ",")
+        .replace(" ", ",")
+        .strip()
+    )
+    _ADMIN_ID_SINGLE = (os.getenv("ADMIN_ID") or os.getenv("OWNER_ID") or "").strip()
+
+    ADMIN_IDS = []  # type: list[int]
+    if _ADMIN_ID_SINGLE:
+        try:
+            ADMIN_IDS = [int(_ADMIN_ID_SINGLE)]
+        except ValueError:
+            ADMIN_IDS = []
+    elif _ADMIN_IDS_RAW:
+        ids: list[int] = []
+        for part in [p for p in _ADMIN_IDS_RAW.split(",") if p.strip()]:
+            try:
+                ids.append(int(part))
+            except ValueError:
+                continue
+        ADMIN_IDS = ids
+    else:
+        ADMIN_IDS = []
+
     # ולידציה
     @classmethod
     def validate(cls):
@@ -50,3 +78,11 @@ class Config:
             raise ValueError("MONGODB_URI is required. Set it in environment variables.")
 
         return True
+
+    @classmethod
+    def is_admin(cls, user_id: int) -> bool:
+        """בדיקה האם המשתמש הוא מנהל"""
+        try:
+            return int(user_id) in cls.ADMIN_IDS
+        except Exception:
+            return False

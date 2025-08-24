@@ -68,6 +68,7 @@ class TefillinBot:
         self.app.add_handler(CommandHandler("stats", lambda u, c: self.stats_command(u, c)))
         self.app.add_handler(CommandHandler("help", lambda u, c: self.help_command(u, c)))
         self.app.add_handler(CommandHandler("skip", lambda u, c: self.skip_today_command(u, c)))
+        self.app.add_handler(CommandHandler("usage", self.usage_command))
 
         # Conversation handler לזמן מותאם אישית
         self.app.add_handler(self.handlers.get_conversation_handler())
@@ -309,6 +310,8 @@ class TefillinBot:
         # עדכון במסד נתונים
         update_data = {"streak": new_streak, "last_done": today, "last_done_time": datetime.now().isoformat()}
         self.db_manager.update_user(user_id, update_data)
+        # רישום שימוש
+        self.db_manager.log_user_action(user_id, "tefillin_done")
 
         # הודעת אישור
         streak_text = ""
@@ -393,6 +396,8 @@ class TefillinBot:
                         user_id,
                         {"streak": new_streak, "last_done": today, "last_done_time": datetime.now().isoformat()},
                     )
+                    # רישום שימוש
+                    self.db_manager.log_user_action(user_id, "tefillin_done")
                     streak_text = ""
                     if new_streak > 1:
                         if new_streak >= 7:
@@ -518,6 +523,56 @@ class TefillinBot:
         """פקודת סטטיסטיקות מפורטת"""
         user_id = update.effective_user.id
         await self.handlers.show_user_stats(type("Query", (), {"edit_message_text": update.message.reply_text})(), user_id)
+
+    async def usage_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """פקודת אדמין: מי השתמש בשבוע האחרון, באילו שעות, וכמה ימים"""
+        user_id = update.effective_user.id
+        if not Config.is_admin(user_id):
+            await update.message.reply_text("פקודה זו למנהלים בלבד")
+            return
+
+        # פרמטר אופציונלי: מספר ימים (ברירת מחדל 7)
+        days = 7
+        try:
+            if context.args and len(context.args) > 0:
+                days = max(1, min(30, int(context.args[0])))
+        except Exception:
+            days = 7
+
+        results = self.db_manager.get_usage_last_days(days)
+
+        if not results:
+            await update.message.reply_text(f"אין נתוני שימוש ב-{days} הימים האחרונים.")
+            return
+
+        total_users = len(results)
+        header = f"📊 שימוש ב-{days} ימים אחרונים\nסה\"כ משתמשים פעילים: {total_users}\n\n"
+
+        # בניית שורות תצוגה; הגבלת שעות לתצוגה עד 5 ראשונות
+        lines = []
+        for idx, r in enumerate(results, start=1):
+            uid = r.get("user_id")
+            days_count = r.get("days_count", 0)
+            hours = r.get("hours", [])
+            # ייחוד והגבלה בוצעו כבר בשכבת DB, אך נגן גם כאן למקרה חריג
+            unique_hours = sorted({h for h in hours})
+            hours_preview = ", ".join(unique_hours[:5]) + ("…" if len(unique_hours) > 5 else "")
+            lines.append(f"{idx}. ID {uid} — {days_count} ימים — שעות: {hours_preview}")
+
+        # טלגרם מגביל הודעה ~4096 תווים; נחלק במידת הצורך
+        text = header + "\n".join(lines)
+        if len(text) <= 4000:
+            await update.message.reply_text(text)
+        else:
+            # שליחה בקבצים
+            chunk = ""
+            for line in [header] + lines:
+                if len(chunk) + len(line) + 1 > 3900:
+                    await update.message.reply_text(chunk)
+                    chunk = ""
+                chunk += ("\n" if chunk else "") + line
+            if chunk:
+                await update.message.reply_text(chunk)
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """פקודת עזרה"""

@@ -356,6 +356,75 @@ class DatabaseManager:
             logger.error(f"Failed to get database info: {e}")
             return {}
 
+    def get_usage_last_days(self, days: int = 7) -> List[Dict[str, Any]]:
+        """קבלת שימוש בשבוע האחרון (ברירת מחדל):
+        מחזיר רשימה לפי משתמש עם מספר ימים שבהם השתמש ושעות הפעילות.
+        שימוש מוגדר כאירוע action='tefillin_done' בלוגים.
+        """
+        try:
+            since = datetime.now() - timedelta(days=days)
+
+            pipeline = [
+                {"$match": {"timestamp": {"$gte": since}, "action": "tefillin_done"}},
+                {
+                    "$project": {
+                        "user_id": 1,
+                        "timestamp": 1,
+                        "date": {"$dateToString": {"format": "%Y-%m-%d", "date": "$timestamp"}},
+                        "hour": {"$dateToString": {"format": "%H:%M", "date": "$timestamp"}},
+                    }
+                },
+                {
+                    "$group": {
+                        "_id": "$user_id",
+                        "days_used": {"$addToSet": "$date"},
+                        "hours": {"$push": "$hour"},
+                        "last": {"$max": "$timestamp"},
+                    }
+                },
+                {
+                    "$project": {
+                        "_id": 0,
+                        "user_id": "$_id",
+                        "days_count": {"$size": "$days_used"},
+                        "hours": 1,
+                        "last": 1,
+                    }
+                },
+                {"$sort": {"days_count": -1, "last": -1}},
+            ]
+
+            results = list(self.logs_collection.aggregate(pipeline))
+
+            # הוספת מידע בסיסי מהטבלת users (למשל daily_time)
+            user_ids = [r["user_id"] for r in results]
+            users_map: Dict[int, Dict[str, Any]] = {}
+            if user_ids:
+                for u in self.users_collection.find({"user_id": {"$in": user_ids}}, {"user_id": 1, "daily_time": 1, "active": 1}):
+                    users_map[u.get("user_id")] = u
+
+            enriched: List[Dict[str, Any]] = []
+            for r in results:
+                user_info = users_map.get(r["user_id"], {})
+                # ייחוד שעות ומיון
+                unique_hours = sorted({h for h in r.get("hours", [])})
+                enriched.append(
+                    {
+                        "user_id": r["user_id"],
+                        "days_count": r.get("days_count", 0),
+                        "hours": unique_hours,
+                        "last": r.get("last"),
+                        "daily_time": user_info.get("daily_time"),
+                        "active": user_info.get("active", True),
+                    }
+                )
+
+            return enriched
+
+        except Exception as e:
+            logger.error(f"Failed to get usage for last {days} days: {e}")
+            return []
+
     def backup_user_data(self, user_id: int) -> Optional[Dict]:
         """גיבוי נתוני משתמש"""
         try:
