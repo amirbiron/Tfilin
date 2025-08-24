@@ -11,6 +11,8 @@ from pymongo import MongoClient
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    BotCommand,
+    BotCommandScopeChat,
     KeyboardButton,
     ReplyKeyboardMarkup,
     Update,
@@ -687,6 +689,20 @@ class TefillinBot:
 
         # עדכון זמני שקיעה
         await self.scheduler.update_daily_times()
+
+        # הגדרת תפריט פקודות ייעודי למנהלים בלבד (רק /usage) בצ'אט הפרטי שלהם
+        try:
+            admin_ids = getattr(Config, "ADMIN_IDS", []) or []
+            if admin_ids:
+                commands = [BotCommand("usage", "דוח שימוש אחרון" )]
+                for admin_id in admin_ids:
+                    try:
+                        await self.app.bot.set_my_commands(commands, scope=BotCommandScopeChat(chat_id=admin_id))
+                        logger.info(f"Admin commands set for chat {admin_id}")
+                    except Exception as e:
+                        logger.warning(f"Failed to set admin commands for chat {admin_id}: {e}")
+        except Exception as e:
+            logger.warning(f"Skipping admin commands configuration: {e}")
 
         logger.info("Bot startup completed successfully")
 
