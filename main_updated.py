@@ -258,7 +258,8 @@ class TefillinBot:
         # חילוץ השעה
         time_str = data.replace("time_", "")
 
-        # עדכון לא הורס הגדרות קיימות: אם המשתמש קיים, עדכן רק את השעה; אחרת צור חדש
+        # עדכון לא הורס הגדרות קיימות:
+        # אם המשתמש קיים, עדכן רק את השעה; אחרת צור חדש
         existing = self.db_manager.get_user(user_id)
         if existing:
             self.db_manager.update_user(user_id, {"daily_time": time_str})
@@ -389,7 +390,10 @@ class TefillinBot:
         base_url = os.getenv("PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "http://localhost:10000"
         camera_url = f"{base_url.rstrip('/')}/webapp/camera"
 
-        text = "📸 צילום עם תפילין\n\nלחץ על הכפתור כדי לפתוח את המצלמה בתוך Telegram, צלם ושלח אליי."
+        text = (
+            "📸 צילום עם תפילין\n\n"
+            "לחץ על הכפתור כדי לפתוח את המצלמה בתוך Telegram, צלם ושלח אליי."
+        )
 
         keyboard = [
             [InlineKeyboardButton("פתח מצלמה 📷", web_app=WebAppInfo(camera_url))],
@@ -479,7 +483,8 @@ class TefillinBot:
             # ברירת מחדל: זיהוי שעה ידנית
             if validate_time_input(text):
                 await update.message.reply_text(
-                    f"נראה שרצית לקבוע שעה: {text}\nהשתמש ב-/settings כדי לשנות את השעה היומית."
+                    f"נראה שרצית לקבוע שעה: {text}\n"
+                    f"השתמש ב-/settings כדי לשנות את השעה היומית."
                 )
             else:
                 await update.message.reply_text("שלום! 👋\nהשתמש ב-/menu או ב-/help לעזרה.")
@@ -638,7 +643,9 @@ class TefillinBot:
 
         self.db_manager.update_user(user_id, {"skipped_date": today})
 
-        await update.message.reply_text("✅ דילגתי על התזכורת להיום.\nנתראה מחר עם תזכורת חדשה! 👋")
+        await update.message.reply_text(
+            "✅ דילגתי על התזכורת להיום.\nנתראה מחר עם תזכורת חדשה! 👋"
+        )
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
         """טיפול בשגיאות"""
@@ -648,7 +655,9 @@ class TefillinBot:
         logger.error(f"Exception while handling an update: {context.error}")
         if isinstance(update, Update) and update.effective_message:
             try:
-                await update.effective_message.reply_text("מצטער, אירעה שגיאה. אנא נסה שוב מאוחר יותר.")
+                await update.effective_message.reply_text(
+                    "מצטער, אירעה שגיאה. אנא נסה שוב מאוחר יותר."
+                )
             except Exception:
                 pass
 
