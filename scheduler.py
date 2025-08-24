@@ -56,10 +56,6 @@ class TefillinScheduler:
         current_time = now.time()
         current_date = now.date()
 
-        # בדיקה אם זה שבת או חג
-        if self.hebrew_times.is_shabbat_or_holiday(current_date):
-            return
-
         # חיפוש משתמשים שצריכים תזכורת בזמן הנוכחי (±1 דקה)
         users_to_remind = self.users_collection.find(
             {
@@ -92,6 +88,15 @@ class TefillinScheduler:
         )
 
         for user in users_to_remind:
+            # תמיכה בדילוג חד-פעמי
+            if user.get("skip_next") is True:
+                try:
+                    self.users_collection.update_one(
+                        {"user_id": user["user_id"]}, {"$set": {"skip_next": False}}
+                    )
+                except Exception:
+                    pass
+                continue
             # בדיקה שלא נשלחה כבר היום
             last_reminder = user.get("last_reminder_date")
             if last_reminder and last_reminder == current_date.isoformat():

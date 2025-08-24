@@ -96,8 +96,9 @@ class HebrewTimes:
                 "cfg": "json",
                 "maj": "on",  # חגים מרכזיים
                 "min": "on",  # חגים קטנים
-                "mod": "on",  # חגים מודרניים
-                "nx": "on",  # ראש השנה וכיפור
+                # מודרניים ור"ח אינם מונעים תפילין בכל הקהילות, כדי לא להכביד על בדיקות נשאיר כלא חגים
+                # "mod": "on",
+                # "nx": "on",
                 "year": year,
                 "month": "x",  # כל השנה
             }
@@ -110,8 +111,8 @@ class HebrewTimes:
             for event in data.get("items", []):
                 if event.get("date") == date_str:
                     category = event.get("category", "")
-                    # בדיקה לחגים שבהם לא נוהגים להניח תפילין
-                    if category in ["major", "modern", "roshchodesh"]:
+                    # רק חגים מרכזיים ימנעו תזכורת
+                    if category in ["major"]:
                         self.holidays_cache[date_str] = True
                         return True
 
