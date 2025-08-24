@@ -25,7 +25,11 @@ class Config:
     DEFAULT_REMINDER_TIME = "07:30"
 
     # הגדרות תזכורות
-    SNOOZE_OPTIONS = {"short": 60, "medium": 180, "long": 360}  # דקות  # 3 שעות  # 6 שעות
+    SNOOZE_OPTIONS = {
+        "short": 60,
+        "medium": 180,
+        "long": 360,
+    }  # דקות  # 3 שעות  # 6 שעות
 
     # הגדרות שבת וחגים
     SKIP_SHABBAT = True
@@ -76,7 +80,9 @@ class Config:
             raise ValueError("BOT_TOKEN is required. Set it in environment variables.")
 
         if not cls.MONGODB_URI:
-            raise ValueError("MONGODB_URI is required. Set it in environment variables.")
+            raise ValueError(
+                "MONGODB_URI is required. Set it in environment variables."
+            )
 
         return True
 
