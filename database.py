@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from pymongo import ASCENDING, DESCENDING, MongoClient
-from pymongo.errors import ConnectionFailure, DuplicateKeyError
+from pymongo.errors import DuplicateKeyError
 
 from config import Config
 

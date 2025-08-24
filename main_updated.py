@@ -31,7 +31,7 @@ from database import DatabaseManager
 from handlers import TefillinHandlers
 from hebrew_times import HebrewTimes
 from scheduler import TefillinScheduler
-from utils import format_time, get_user_display_name, validate_time_input
+from utils import get_user_display_name, validate_time_input
 
 # הגדרת לוגים
 logging.basicConfig(
