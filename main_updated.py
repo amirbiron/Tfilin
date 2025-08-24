@@ -9,6 +9,8 @@ from io import BytesIO
 
 from pymongo import MongoClient
 from telegram import (
+    BotCommand,
+    BotCommandScopeChat,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     KeyboardButton,
@@ -17,14 +19,7 @@ from telegram import (
     WebAppInfo,
 )
 from telegram.error import Conflict
-from telegram.ext import (
-    Application,
-    CallbackQueryHandler,
-    CommandHandler,
-    ContextTypes,
-    MessageHandler,
-    filters,
-)
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
 
 from config import Config
 from database import DatabaseManager
@@ -565,11 +560,25 @@ class TefillinBot:
         results = self.db_manager.get_usage_last_days(days)
 
         if not results:
-            await update.message.reply_text(f"אין נתוני שימוש ב-{days} הימים האחרונים.")
+            summary = self.db_manager.get_usage_summary(days)
+            total_active = summary.get("total_active_users", 0)
+            users_done = summary.get("users_marked_done", 0)
+            total_marks = summary.get("total_marks", 0)
+            await update.message.reply_text(
+                "\n".join(
+                    [
+                        f"📊 סיכום שימוש {days} ימים אחרונים:",
+                        f"משתמשים פעילים: {total_active}",
+                        f"משתמשים שסימנו הנחה לפחות פעם אחת: {users_done}",
+                        f"מספר סימונים כולל (tefillin_done): {total_marks}",
+                        "(אין פירוט לפי משתמשים כי לא נמצאו לוגים מתאימים)",
+                    ]
+                )
+            )
             return
 
         total_users = len(results)
-        header = f'📊 שימוש ב-{days} ימים אחרונים\nסה"כ משתמשים פעילים: {total_users}\n\n'
+        header = f'📊 שימוש ב-{days} ימים אחרונים\nסה"כ משתמשים פעילים (עם לוגים): {total_users}\n\n'
 
         # בניית שורות תצוגה; הגבלת שעות לתצוגה עד 5 ראשונות
         lines = []
@@ -673,6 +682,20 @@ class TefillinBot:
 
         # עדכון זמני שקיעה
         await self.scheduler.update_daily_times()
+
+        # הגדרת תפריט פקודות ייעודי למנהלים בלבד (רק /usage) בצ'אט הפרטי שלהם
+        try:
+            admin_ids = getattr(Config, "ADMIN_IDS", []) or []
+            if admin_ids:
+                commands = [BotCommand("usage", "דוח שימוש אחרון")]
+                for admin_id in admin_ids:
+                    try:
+                        await self.app.bot.set_my_commands(commands, scope=BotCommandScopeChat(chat_id=admin_id))
+                        logger.info(f"Admin commands set for chat {admin_id}")
+                    except Exception as e:
+                        logger.warning(f"Failed to set admin commands for chat {admin_id}: {e}")
+        except Exception as e:
+            logger.warning(f"Skipping admin commands configuration: {e}")
 
         logger.info("Bot startup completed successfully")
 
