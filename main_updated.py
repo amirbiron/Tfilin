@@ -376,7 +376,11 @@ class TefillinBot:
 🙏 יהי רצון שתהיה קריאתך מקובלת לפני הקב"ה"""
 
         keyboard = [[InlineKeyboardButton("⬅️ חזור", callback_data="back_to_menu")]]
-        await query.edit_message_text(shema_text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+        await query.edit_message_text(
+            shema_text,
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+        )
 
     async def handle_take_selfie(self, query):
         """פתיחת מצלמה באמצעות Web App"""
@@ -431,7 +435,9 @@ class TefillinBot:
                 return
 
             if text == "קריאת שמע 📖":
-                await self.handle_show_shema(type("Q", (), {"edit_message_text": update.message.reply_text})())
+                await self.handle_show_shema(
+                    type("Q", (), {"edit_message_text": update.message.reply_text})()
+                )
                 return
 
             if text == "צלם תמונה 📸":
@@ -448,12 +454,15 @@ class TefillinBot:
                 return
 
             if text == "🕐 שינוי שעה":
-                await self.handlers.show_time_selection(type("Q", (), {"edit_message_text": update.message.reply_text})())
+                await self.handlers.show_time_selection(
+                    type("Q", (), {"edit_message_text": update.message.reply_text})()
+                )
                 return
 
             if text == "🌇 תזכורת שקיעה":
                 await self.handlers.show_sunset_settings(
-                    type("Q", (), {"edit_message_text": update.message.reply_text})(), user_id
+                    type("Q", (), {"edit_message_text": update.message.reply_text})(),
+                    user_id,
                 )
                 return
 
@@ -467,7 +476,9 @@ class TefillinBot:
 
             # ברירת מחדל: זיהוי שעה ידנית
             if validate_time_input(text):
-                await update.message.reply_text(f"נראה שרצית לקבוע שעה: {text}\nהשתמש ב-/settings כדי לשנות את השעה היומית.")
+                await update.message.reply_text(
+                    f"נראה שרצית לקבוע שעה: {text}\nהשתמש ב-/settings כדי לשנות את השעה היומית."
+                )
             else:
                 await update.message.reply_text("שלום! 👋\nהשתמש ב-/menu או ב-/help לעזרה.")
         except Exception as e:
