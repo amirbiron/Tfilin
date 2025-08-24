@@ -9,24 +9,17 @@ from io import BytesIO
 
 from pymongo import MongoClient
 from telegram import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
     BotCommand,
     BotCommandScopeChat,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
     KeyboardButton,
     ReplyKeyboardMarkup,
     Update,
     WebAppInfo,
 )
 from telegram.error import Conflict
-from telegram.ext import (
-    Application,
-    CallbackQueryHandler,
-    CommandHandler,
-    ContextTypes,
-    MessageHandler,
-    filters,
-)
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
 
 from config import Config
 from database import DatabaseManager
@@ -694,7 +687,7 @@ class TefillinBot:
         try:
             admin_ids = getattr(Config, "ADMIN_IDS", []) or []
             if admin_ids:
-                commands = [BotCommand("usage", "דוח שימוש אחרון" )]
+                commands = [BotCommand("usage", "דוח שימוש אחרון")]
                 for admin_id in admin_ids:
                     try:
                         await self.app.bot.set_my_commands(commands, scope=BotCommandScopeChat(chat_id=admin_id))
