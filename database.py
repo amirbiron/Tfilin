@@ -460,6 +460,36 @@ class DatabaseManager:
             logger.error(f"Failed to get usage for last {days} days: {e}")
             return []
 
+    def get_usage_summary(self, days: int = 7) -> Dict[str, Any]:
+        """סיכום שימוש כללי עבור X הימים האחרונים.
+        מחזיר:
+        - total_active_users: כמות משתמשים פעילים
+        - users_marked_done: משתמשים שסימנו tefillin_done לפחות פעם אחת בתקופה
+        - total_marks: מספר כללי של סימוני tefillin_done בתקופה
+        """
+        try:
+            since = datetime.now() - timedelta(days=days)
+
+            total_active = self.users_collection.count_documents({"active": True})
+
+            pipeline = [
+                {"$match": {"timestamp": {"$gte": since}, "action": "tefillin_done"}},
+                {"$group": {"_id": "$user_id", "count": {"$sum": 1}}},
+            ]
+            per_user = list(self.logs_collection.aggregate(pipeline))
+
+            users_marked_done = len(per_user)
+            total_marks = sum(doc.get("count", 0) for doc in per_user)
+
+            return {
+                "total_active_users": total_active,
+                "users_marked_done": users_marked_done,
+                "total_marks": total_marks,
+            }
+        except Exception as e:
+            logger.error(f"Failed to get usage summary for last {days} days: {e}")
+            return {"total_active_users": 0, "users_marked_done": 0, "total_marks": 0}
+
     def backup_user_data(self, user_id: int) -> Optional[Dict]:
         """גיבוי נתוני משתמש"""
         try:
