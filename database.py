@@ -41,7 +41,10 @@ class DatabaseManager:
             self.logs_collection.create_index([("action", ASCENDING)])
 
             # אינדקס TTL ללוגים (מחיקה אוטומטית אחרי 30 יום)
-            self.logs_collection.create_index([("timestamp", ASCENDING)], expireAfterSeconds=30 * 24 * 60 * 60)  # 30 יום
+            self.logs_collection.create_index(
+                [("timestamp", ASCENDING)],
+                expireAfterSeconds=30 * 24 * 60 * 60,
+            )  # 30 יום
 
             # אינדקסים ל-lock מבוזר למניעת ריבוי מופעים
             # מזהה ייחודי לשם ה-lock, ו-TTL שמבוסס על שדה expireAt (נמחק כשהתאריך עובר)
@@ -243,7 +246,9 @@ class DatabaseManager:
 
             # קבלת מספר פעולות מהלוגים
             total_actions = self.logs_collection.count_documents({"user_id": user_id})
-            tefillin_done_count = self.logs_collection.count_documents({"user_id": user_id, "action": "tefillin_done"})
+            tefillin_done_count = self.logs_collection.count_documents(
+                {"user_id": user_id, "action": "tefillin_done"}
+            )
 
             return {
                 "streak": streak,
@@ -293,7 +298,11 @@ class DatabaseManager:
             }
 
             # עדכון או יצירה
-            self.stats_collection.update_one({"date": date_str, "type": "daily"}, {"$set": stats_entry}, upsert=True)
+            self.stats_collection.update_one(
+                {"date": date_str, "type": "daily"},
+                {"$set": stats_entry},
+                upsert=True,
+            )
 
             logger.info(f"Saved daily stats for {date_str}")
             return True
@@ -309,7 +318,10 @@ class DatabaseManager:
             start_date_str = start_date.date().isoformat()
 
             return list(
-                self.stats_collection.find({"type": "daily", "date": {"$gte": start_date_str}}, sort=[("date", DESCENDING)])
+                self.stats_collection.find(
+                    {"type": "daily", "date": {"$gte": start_date_str}},
+                    sort=[("date", DESCENDING)],
+                )
             )
 
         except Exception as e:
@@ -400,7 +412,10 @@ class DatabaseManager:
             user_ids = [r["user_id"] for r in results]
             users_map: Dict[int, Dict[str, Any]] = {}
             if user_ids:
-                for u in self.users_collection.find({"user_id": {"$in": user_ids}}, {"user_id": 1, "daily_time": 1, "active": 1}):
+                for u in self.users_collection.find(
+                    {"user_id": {"$in": user_ids}},
+                    {"user_id": 1, "daily_time": 1, "active": 1},
+                ):
                     users_map[u.get("user_id")] = u
 
             enriched: List[Dict[str, Any]] = []
@@ -433,9 +448,17 @@ class DatabaseManager:
                 return None
 
             # הוספת לוגים אחרונים
-            recent_logs = list(self.logs_collection.find({"user_id": user_id}, sort=[("timestamp", DESCENDING)], limit=50))
+            recent_logs = list(
+                self.logs_collection.find(
+                    {"user_id": user_id}, sort=[("timestamp", DESCENDING)], limit=50
+                )
+            )
 
-            backup_data = {"user_data": user_data, "recent_logs": recent_logs, "backup_timestamp": datetime.now().isoformat()}
+            backup_data = {
+                "user_data": user_data,
+                "recent_logs": recent_logs,
+                "backup_timestamp": datetime.now().isoformat(),
+            }
 
             return backup_data
 

@@ -8,9 +8,23 @@ from datetime import datetime, timedelta
 from io import BytesIO
 
 from pymongo import MongoClient
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, Update, WebAppInfo
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    Update,
+    WebAppInfo,
+)
 from telegram.error import Conflict
-from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
 
 from config import Config
 from database import DatabaseManager
@@ -21,7 +35,8 @@ from utils import format_time, get_user_display_name, validate_time_input
 
 # הגדרת לוגים
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=getattr(logging, os.getenv("LOG_LEVEL", "INFO"))
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=getattr(logging, os.getenv("LOG_LEVEL", "INFO")),
 )
 logger = logging.getLogger(__name__)
 
@@ -145,7 +160,11 @@ class TefillinBot:
         if greeting is not None:
             current_time = (user or {}).get("daily_time", "07:30")
             streak = (user or {}).get("streak", 0)
-            header = f"שלום שוב {greeting}! 👋\n\n" f"🕐 שעה יומית: {current_time}\n" f"🔥 רצף: {streak} ימים\n\n"
+            header = (
+                f"שלום שוב {greeting}! 👋\n\n"
+                f"🕐 שעה יומית: {current_time}\n"
+                f"🔥 רצף: {streak} ימים\n\n"
+            )
 
         # ודא שהטקסט לא ריק כדי לא לשבור שליחת הודעה
         text_for_reply_keyboard = header if header.strip() else "תפריט ראשי"

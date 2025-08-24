@@ -43,10 +43,7 @@ class Config:
     # ניתן להגדיר ADMIN_IDS כשרשור מזהים מופרדים בפסיקים/רווחים/נקודה־פסיק
     # או ADMIN_ID יחיד (לנוחות), או OWNER_ID (תואם לסביבות מסוימות)
     _ADMIN_IDS_RAW = (
-        os.getenv("ADMIN_IDS", "")
-        .replace(";", ",")
-        .replace(" ", ",")
-        .strip()
+        os.getenv("ADMIN_IDS", "").replace(";", ",").replace(" ", ",").strip()
     )
     _ADMIN_ID_SINGLE = (os.getenv("ADMIN_ID") or os.getenv("OWNER_ID") or "").strip()
 
