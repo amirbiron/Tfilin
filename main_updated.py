@@ -313,7 +313,9 @@ class TefillinBot:
         # בדיקה שלא סומן כבר היום
         last_done = user.get("last_done")
         if last_done == today:
-            await query.edit_message_text("כבר סימנת שהנחת תפילין היום! ✅\nהמשך יום מעולה! 🙏")
+            await query.edit_message_text(
+                "כבר סימנת שהנחת תפילין היום! ✅\nהמשך יום מעולה! 🙏"
+            )
             return
 
         # עדכון רצף

@@ -47,7 +47,8 @@ class DatabaseManager:
             )  # 30 יום
 
             # אינדקסים ל-lock מבוזר למניעת ריבוי מופעים
-            # מזהה ייחודי לשם ה-lock, ו-TTL שמבוסס על שדה expireAt (נמחק כשהתאריך עובר)
+            # מזהה ייחודי לשם ה-lock, ו-TTL שמבוסס על שדה expireAt
+            # (נמחק כשהתאריך עובר)
             self.locks_collection.create_index([("name", ASCENDING)], unique=True)
             self.locks_collection.create_index([("expireAt", ASCENDING)], expireAfterSeconds=0)
 
