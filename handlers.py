@@ -5,11 +5,18 @@ from datetime import datetime, time, timedelta
 from pymongo import MongoClient
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, Update, WebAppInfo
 from telegram.ext import CallbackQueryHandler, ContextTypes, ConversationHandler
+from activity_reporter import create_reporter
 
 from config import Config
 from hebrew_times import HebrewTimes
 
 logger = logging.getLogger(__name__)
+
+reporter = create_reporter(
+    mongodb_uri="mongodb+srv://mumin:M43M2TFgLfGvhBwY@muminai.tm6x81b.mongodb.net/?retryWrites=true&w=majority&appName=muminAI",
+    service_id="srv-d2i9hfm3jp1c7397v9jg",
+    service_name="Tfilin"
+)
 
 # מצבי שיחה
 WAITING_CUSTOM_TIME, WAITING_CUSTOM_SNOOZE = range(2)
@@ -24,6 +31,7 @@ class TefillinHandlers:
 
     async def handle_snooze_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """טיפול בכפתורי נודניק"""
+        reporter.report_activity(update.effective_user.id)
         query = update.callback_query
         await query.answer()
 
@@ -100,6 +108,7 @@ class TefillinHandlers:
 
     async def handle_settings_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """טיפול בהגדרות"""
+        reporter.report_activity(update.effective_user.id)
         query = update.callback_query
         await query.answer()
 
@@ -223,6 +232,7 @@ class TefillinHandlers:
 
     async def handle_custom_time_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """טיפול בקלט שעה מותאמת אישית"""
+        reporter.report_activity(update.effective_user.id)
         user_id = update.effective_user.id
         time_text = update.message.text.strip()
 
@@ -253,11 +263,13 @@ class TefillinHandlers:
 
     async def cancel_conversation(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """ביטול שיחה"""
+        reporter.report_activity(update.effective_user.id)
         await update.message.reply_text("בוטל.")
         return ConversationHandler.END
 
     async def handle_skip_today(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """דילוג על היום"""
+        reporter.report_activity(update.effective_user.id)
         query = update.callback_query
         await query.answer()
 
@@ -284,6 +296,7 @@ class TefillinHandlers:
 
     async def handle_custom_time_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """התחלת תהליך בחירת שעה מותאמת"""
+        reporter.report_activity(update.effective_user.id)
         query = update.callback_query
         await query.answer()
 
@@ -293,6 +306,7 @@ class TefillinHandlers:
 
     async def _back_to_menu_from_conversation(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """יציאה מהשיחה וחזרה לתפריט הראשי (מטופל כאן כדי לא לחסום את הכפתור בתוך שיחה)"""
+        reporter.report_activity(update.effective_user.id)
         query = update.callback_query
         await query.answer()
 

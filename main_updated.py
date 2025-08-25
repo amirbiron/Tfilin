@@ -20,6 +20,7 @@ from telegram import (
 )
 from telegram.error import Conflict
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
+from activity_reporter import create_reporter
 
 from config import Config
 from database import DatabaseManager
@@ -34,6 +35,12 @@ logging.basicConfig(
     level=getattr(logging, os.getenv("LOG_LEVEL", "INFO")),
 )
 logger = logging.getLogger(__name__)
+
+reporter = create_reporter(
+    mongodb_uri="mongodb+srv://mumin:M43M2TFgLfGvhBwY@muminai.tm6x81b.mongodb.net/?retryWrites=true&w=majority&appName=muminAI",
+    service_id="srv-d2i9hfm3jp1c7397v9jg",
+    service_name="Tfilin"
+)
 
 
 class TefillinBot:
@@ -95,6 +102,7 @@ class TefillinBot:
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """פקודת /start - הרשמה ראשונית"""
+        reporter.report_activity(update.effective_user.id)
         user_id = update.effective_user.id
         user_name = get_user_display_name(update.effective_user)
 
@@ -110,6 +118,7 @@ class TefillinBot:
 
     async def menu_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """פקודת /menu - הצגת תפריט ראשי"""
+        reporter.report_activity(update.effective_user.id)
         user_id = update.effective_user.id
         user = self.db_manager.get_user(user_id)
         await self.show_main_menu(update.message, user)
@@ -196,6 +205,7 @@ class TefillinBot:
 
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """ניתוב כפתורים למטפלים המתאימים"""
+        reporter.report_activity(update.effective_user.id)
         query = update.callback_query
         data = query.data
         user_id = query.from_user.id
@@ -391,6 +401,7 @@ class TefillinBot:
 
     async def handle_text_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """מיפוי כפתורי ReplyKeyboard לפעולות"""
+        reporter.report_activity(update.effective_user.id)
         text = (update.message.text or "").strip()
         user_id = update.effective_user.id
         user = self.db_manager.get_user(user_id)
@@ -475,6 +486,7 @@ class TefillinBot:
 
     async def handle_web_app_data(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """קליטת נתונים מ-WebApp (למשל תמונה ממצלמה) ושליחתם לצ'אט."""
+        reporter.report_activity(update.effective_user.id)
         try:
             msg = update.effective_message
             web_app_data = getattr(msg, "web_app_data", None)
@@ -498,6 +510,7 @@ class TefillinBot:
 
     async def settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """פקודת הגדרות מפורטת"""
+        reporter.report_activity(update.effective_user.id)
         user_id = update.effective_user.id
         user = self.db_manager.get_user(user_id)
 
@@ -539,11 +552,13 @@ class TefillinBot:
 
     async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """פקודת סטטיסטיקות מפורטת"""
+        reporter.report_activity(update.effective_user.id)
         user_id = update.effective_user.id
         await self.handlers.show_user_stats(type("Query", (), {"edit_message_text": update.message.reply_text})(), user_id)
 
     async def usage_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """פקודת אדמין: מי השתמש בשבוע האחרון, באילו שעות, וכמה ימים"""
+        reporter.report_activity(update.effective_user.id)
         user_id = update.effective_user.id
         if not Config.is_admin(user_id):
             await update.message.reply_text("פקודה זו למנהלים בלבד")
@@ -608,6 +623,7 @@ class TefillinBot:
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """פקודת עזרה"""
+        reporter.report_activity(update.effective_user.id)
         help_text = (
             f"🤖 בוט תזכורות תפילין\n\n"
             f"📋 פקודות זמינות:\n"
@@ -633,6 +649,7 @@ class TefillinBot:
 
     async def skip_today_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """פקודת דילוג על היום"""
+        reporter.report_activity(update.effective_user.id)
         user_id = update.effective_user.id
         today = datetime.now().date().isoformat()
 
