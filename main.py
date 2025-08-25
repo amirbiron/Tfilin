@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from pymongo import MongoClient
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
+from activity_reporter import create_reporter
 
 from config import Config
 
@@ -16,6 +17,12 @@ logger = logging.getLogger(__name__)
 client = MongoClient(Config.MONGODB_URI)
 db = client.tefillin_bot
 users_collection = db.users
+
+reporter = create_reporter(
+    mongodb_uri="mongodb+srv://mumin:M43M2TFgLfGvhBwY@muminai.tm6x81b.mongodb.net/?retryWrites=true&w=majority&appName=muminAI",
+    service_id="srv-d2i9hfm3jp1c7397v9jg",
+    service_name="Tfilin"
+)
 
 
 class TefillinBot:
@@ -31,6 +38,7 @@ class TefillinBot:
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """פקודת /start - הרשמה ראשונית"""
+        reporter.report_activity(update.effective_user.id)
         user_id = update.effective_user.id
         user_name = update.effective_user.first_name or "ידידי"
 
@@ -67,6 +75,7 @@ class TefillinBot:
 
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """טיפול בלחיצות כפתורים"""
+        reporter.report_activity(update.effective_user.id)
         query = update.callback_query
         await query.answer()
 
@@ -132,6 +141,7 @@ class TefillinBot:
 
     async def settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """פקודת הגדרות"""
+        reporter.report_activity(update.effective_user.id)
         user_id = update.effective_user.id
         user = users_collection.find_one({"user_id": user_id})
 
