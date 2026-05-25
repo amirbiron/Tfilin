@@ -20,8 +20,8 @@ from telegram import (
 )
 from telegram.error import Conflict
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
-from activity_reporter import create_reporter
 
+from activity_reporter import create_reporter
 from config import Config
 from database import DatabaseManager
 from handlers import TefillinHandlers
@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 reporter = create_reporter(
     mongodb_uri="mongodb+srv://mumin:M43M2TFgLfGvhBwY@muminai.tm6x81b.mongodb.net/?retryWrites=true&w=majority&appName=muminAI",
     service_id="srv-d2i9hfm3jp1c7397v9jg",
-    service_name="Tfilin"
+    service_name="Tfilin",
 )
 
 

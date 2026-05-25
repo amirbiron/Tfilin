@@ -5,8 +5,8 @@ from datetime import datetime, time, timedelta
 from pymongo import MongoClient
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, Update, WebAppInfo
 from telegram.ext import CallbackQueryHandler, ContextTypes, ConversationHandler
-from activity_reporter import create_reporter
 
+from activity_reporter import create_reporter
 from config import Config
 from hebrew_times import HebrewTimes
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 reporter = create_reporter(
     mongodb_uri="mongodb+srv://mumin:M43M2TFgLfGvhBwY@muminai.tm6x81b.mongodb.net/?retryWrites=true&w=majority&appName=muminAI",
     service_id="srv-d2i9hfm3jp1c7397v9jg",
-    service_name="Tfilin"
+    service_name="Tfilin",
 )
 
 # מצבי שיחה
