@@ -1,45 +1,24 @@
-# קובץ הגדרות Render מתקדם לבוט תפילין
-# מאפשר deployment אוטומטי ומתקדם ב-Render
-
-databases:
-  # אופציונלי - אם רוצים Redis לcaching
-  - name: tefillin-redis
-    databaseName: tefillin_cache
-    user: redis_user
-    plan: starter  # Redis חינמי
+# Render Blueprint - בוט תפילין
+# התיעוד הרשמי: https://render.com/docs/blueprint-spec
 
 services:
-  # השירות הראשי - הבוט
   - type: web
     name: tefillin-bot
-    runtime: docker
-    
-    # מידע על ה-repository
-    repo: https://github.com/yourusername/tefillin-bot.git
+    env: docker
+    region: oregon
+    plan: starter
     branch: main
-    
-    # פקודות build ו-start
+
     dockerfilePath: ./Dockerfile
     dockerContext: ./
-    
-    # הגדרות instance
-    plan: starter  # תוכנית בסיסית (חינמית)
-    region: oregon  # אזור שרת (oregon זול יותר)
-    
-    # פקודות
-    buildCommand: ""  # Docker יטפל בבנייה
-    startCommand: "/app/start.sh"  # משתמש בסקריפט ההפעלה
-    
-    # בדיקות תקינות
-    healthCheckPath: "/health"  # Health check endpoint
-    
-    # Auto-deploy
-    autoDeploy: true  # deployment אוטומטי עם git push
-    
-    # משתני סביבה (הגדר בממשק Render)
+
+    startCommand: "/app/start.sh"
+    healthCheckPath: "/health"
+    autoDeploy: true
+
     envVars:
       - key: BOT_TOKEN
-        sync: false  # לא לשתף עם services אחרים
+        sync: false
       - key: MONGODB_URI
         sync: false
       - key: LOG_LEVEL
@@ -50,144 +29,3 @@ services:
         value: "1"
       - key: PYTHONPATH
         value: "/opt/render/project/src"
-      # PORT מוקצה אוטומטית על ידי Render לשירותי web; לא נגדיר ידנית כאן
-    
-    # הגדרות networking
-    domains:
-      - tefillin-bot.onrender.com  # דומיין אוטומטי
-    
-    # הגדרות disk ו-memory
-    disk:
-      name: tefillin-data
-      mountPath: /data
-      sizeGB: 1  # 1GB storage חינמי
-    
-    # Scaling (לתוכניות בתשלום)
-    scaling:
-      minInstances: 1
-      maxInstances: 1
-    
-    # Environment ו-notifications
-    notificationOverride: email  # התראות במייל
-    
-    # Pre-deploy hooks (אופציונלי)
-    preDeployCommand: |
-      echo "🚀 Starting deployment..."
-      echo "Validating environment variables..."
-      
-    # Post-deploy hooks (אופציונלי)  
-    postDeployCommand: |
-      echo "✅ Deployment completed successfully!"
-      echo "Bot should be running now"
-
-  # שירות נוסף - dashboard לניטור (אופציונלי)
-  - type: web
-    name: tefillin-dashboard
-    runtime: python
-    
-    # אם יש dashboard נפרד
-    repo: https://github.com/yourusername/tefillin-dashboard.git
-    branch: main
-    
-    buildCommand: pip install -r requirements.txt
-    startCommand: python dashboard.py
-    
-    plan: starter
-    
-    envVars:
-      - key: MONGODB_URI
-        fromService:
-          type: web
-          name: tefillin-bot
-          envVarKey: MONGODB_URI
-      - key: DASHBOARD_SECRET
-        generateValue: true  # יצירת סיסמה אוטומטית
-
-# הגדרות כלליות
-# Preview environments - עבור testing
-previewsEnabled: true
-previewsExpireAfterDays: 7
-
-# Branch deploys
-branchDeploys:
-  enabled: true
-  autoPreviewsEnabled: true
-
-# Notifications
-notifications:
-  - type: email
-    emails:
-      - your.email@example.com
-    events:
-      - deploy-started
-      - deploy-succeeded  
-      - deploy-failed
-      - service-suspended
-
-  # אופציונלי - התראות לטלגרם
-  - type: webhook
-    url: https://api.telegram.org/botYOUR_BOT_TOKEN/sendMessage
-    events:
-      - deploy-failed
-    headers:
-      Content-Type: application/json
-    payload: |
-      {
-        "chat_id": "YOUR_CHAT_ID",
-        "text": "🚨 Deployment failed for tefillin-bot: {{ service.name }}"
-      }
-
----
-# הערות ושימוש:
-
-# 1. הפעלה:
-#    - העלה את הקובץ הזה לשורש הפרויקט
-#    - Render יזהה ויטפל בכל אוטומטית
-#    - ניתן גם להגדיר ידנית בממשק
-
-# 2. משתני סביבה:
-#    BOT_TOKEN - טוקן הבוט (חובה!)
-#    MONGODB_URI - כתובת MongoDB (חובה!)
-#    LOG_LEVEL - רמת לוגים (INFO)
-#    DEFAULT_TIMEZONE - אזור זמן (Asia/Jerusalem)
-
-# 3. תוכניות:
-#    starter - חינמי, מוגבל
-#    standard - $7/חודש, יותר זכרון
-#    pro - $25/חודש, ביצועים גבוהים
-
-# 4. אזורי שרת:
-#    oregon - זול יותר
-#    virginia - מהיר יותר לישראל
-#    frankfurt - הכי מהיר לישראל (בתשלום)
-
-# 5. Auto-deploy:
-#    כל push ל-main יגרום לdeploy אוטומטי
-#    Preview environments עבור feature branches
-
-# 6. Monitoring:
-#    Render מספק לוגים ומדדים בסיסיים
-#    עבור monitoring מתקדם - השתמש בשירות חיצוני
-
-# 7. Scaling:
-#    בתוכנית החינמית - instance אחד בלבד
-#    בתוכניות בתשלום - auto-scaling
-
-# 8. Storage:
-#    1GB חינמי
-#    לא נדרש לבוט telegram פשוט
-
-# 9. Secrets:
-#    השתמש ב-environment variables ב-UI של Render
-#    אל תשים סודות בקובץ yaml
-
-# 10. Troubleshooting:
-#     צפה בלוגים בזמן אמת: render logs --tail
-#     בדוק health checks אם הוגדרו
-#     וודא שכל משתני הסביבה מוגדרים
-
-# דוגמת פקודות CLI:
-# render login
-# render deploy --service tefillin-bot
-# render logs --service tefillin-bot --tail
-# render env set BOT_TOKEN=your_token --service tefillin-bot
