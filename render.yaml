@@ -12,7 +12,6 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: ./
 
-    startCommand: "/app/start.sh"
     healthCheckPath: "/health"
     autoDeploy: true
 
