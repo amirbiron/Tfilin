@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 from pymongo import MongoClient
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
-from activity_reporter import create_reporter
 
+from activity_reporter import create_reporter
 from config import Config
 
 # הגדרת לוגים
@@ -21,7 +21,7 @@ users_collection = db.users
 reporter = create_reporter(
     mongodb_uri="mongodb+srv://mumin:M43M2TFgLfGvhBwY@muminai.tm6x81b.mongodb.net/?retryWrites=true&w=majority&appName=muminAI",
     service_id="srv-d2i9hfm3jp1c7397v9jg",
-    service_name="Tfilin"
+    service_name="Tfilin",
 )
 
 
